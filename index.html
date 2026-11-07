@@ -1,0 +1,2520 @@
+<!DOCTYPE html>
+<html lang="am" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የጋራ መኪና ገቢ እና ወጪ መመዝገቢያ (የተሻሻለ)</title>
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#3730a3">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="የጋራ መኪና">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font Noto Sans Ethiopic -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        .custom-shadow {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #fff !important;
+            }
+            .print-area {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+            }
+        }
+        @media print {
+            #recordsTableWrap { display: block !important; }
+        }
+        /* Collapsible cards */
+        .c-header { cursor: pointer; user-select: none; }
+        .c-closed > .c-body { display: none; }
+        .c-chev { transition: transform .2s; }
+        [data-collapse]:not(.c-closed) > .c-header .c-chev { transform: rotate(180deg); }
+        .stat-blur { filter: blur(8px); transition: filter .2s; }
+        @media print {
+            .c-closed > .c-body { display: block !important; }
+            .stat-blur { filter: none !important; }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header (No Print) -->
+    <header class="bg-indigo-800 text-white shadow-lg sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <i class="fa-solid fa-car-side text-2xl sm:text-3xl text-indigo-200"></i>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">የጋራ መኪና ገቢና የድርሻ መቆጣጠሪያ</h1>
+                    <p class="text-xs text-indigo-200 hidden sm:block">ባለድርሻዎች፡ ዘላለም እሸቱ እና አበባው የቆየ (50/50)</p>
+                </div>
+            </div>
+            
+            <!-- Tab Navigation Buttons -->
+            <div class="flex items-center bg-indigo-900/70 p-1 rounded-xl text-xs sm:text-sm font-semibold space-x-1 space-x-reverse">
+                <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="tab-btn px-3 py-2 rounded-lg bg-indigo-600 text-white transition-all">
+                    <i class="fa-solid fa-gauge-high"></i> አጠቃላይ ገፅ
+                </button>
+                <button onclick="switchTab('zelalem')" id="tabBtn-zelalem" class="tab-btn px-3 py-2 rounded-lg text-indigo-200 hover:text-white hover:bg-indigo-700/50 transition-all">
+                    <i class="fa-solid fa-user-gear"></i> የዘላለም ገፅ
+                </button>
+                <button onclick="switchTab('abebaw')" id="tabBtn-abebaw" class="tab-btn px-3 py-2 rounded-lg text-indigo-200 hover:text-white hover:bg-indigo-700/50 transition-all">
+                    <i class="fa-solid fa-user-gear"></i> የአበባው ገፅ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full space-y-8">
+
+        <!-- Notification Banner -->
+        <div id="alertBox" class="hidden no-print transition-all duration-300 p-4 rounded-xl flex items-center justify-between text-white font-medium shadow-md">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <i id="alertIcon" class="fa-solid text-xl"></i>
+                <span id="alertMessage"></span>
+            </div>
+            <button onclick="closeAlert()" class="text-white hover:opacity-75 focus:outline-none">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 1: MAIN DASHBOARD & ADMIN CONTROL      -->
+        <!-- ========================================== -->
+        <div id="tabContent-dashboard" class="tab-content space-y-8">
+            
+            <!-- Dashboard Summary Cards -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Total Income -->
+                <div class="bg-white rounded-2xl p-5 custom-shadow border-l-4 border-emerald-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-1 uppercase">ጠቅላላ የተገኘ ገቢ</p>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-emerald-600" id="totalIncome">0.00 <span class="text-xs font-normal">ብር</span></h3>
+                    </div>
+                    <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                        <i class="fa-solid fa-arrow-down-left text-lg"></i>
+                    </div>
+                </div>
+
+                <!-- Total Expenses -->
+                <div class="bg-white rounded-2xl p-5 custom-shadow border-l-4 border-rose-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-1 uppercase">ጠቅላላ የወጣ ወጪ</p>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-rose-600" id="totalExpense">0.00 <span class="text-xs font-normal">ብር</span></h3>
+                    </div>
+                    <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-600">
+                        <i class="fa-solid fa-arrow-up-right text-lg"></i>
+                    </div>
+                </div>
+
+                <!-- Net Profit -->
+                <div class="bg-white rounded-2xl p-5 custom-shadow border-l-4 border-indigo-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-1 uppercase">የተጣራ አጠቃላይ ገቢ</p>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-indigo-600" id="netBalance">0.00 <span class="text-xs font-normal">ብር</span></h3>
+                    </div>
+                    <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
+                        <i class="fa-solid fa-wallet text-lg"></i>
+                    </div>
+                </div>
+
+                <!-- Per Partner Share -->
+                <div class="bg-white rounded-2xl p-5 custom-shadow border-l-4 border-amber-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-1 uppercase">የአንድ አባል ድርሻ (50%)</p>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-amber-600" id="perPartnerShare">0.00 <span class="text-xs font-normal">ብር</span></h3>
+                    </div>
+                    <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                        <i class="fa-solid fa-users text-lg"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Payment confirmations dashboard -->
+            <section class="bg-white rounded-2xl custom-shadow p-6 space-y-4 border-t-4 border-emerald-500">
+                <h3 class="text-base font-bold text-gray-800"><i class="fa-solid fa-clipboard-check text-emerald-600"></i> የክፍያ ማረጋገጫዎች</h3>
+                <p class="text-xs text-gray-500">በየአባላቱ የ"ተቀብያለሁ" እና "አልተቀበልኩም" ብዛት። ዝርዝሩን ለማየት ቁጥሩን ይንኩ።</p>
+                <div id="payConfirmGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="payConfirmDetail" class="hidden rounded-xl border border-gray-200 p-3 overflow-x-auto"></div>
+            </section>
+
+            <!-- Admin lock (Zelalem's password) -->
+        <div id="lock-admin" class="bg-white rounded-2xl custom-shadow p-8 max-w-md mx-auto border-t-4 border-indigo-600 space-y-4 no-print">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-lock"></i></div>
+                <h2 class="text-lg font-bold text-gray-800">የዕለት ገቢና ወጪ መመዝገቢያ (የይለፍ ቃል ያስፈልጋል)</h2>
+                <p class="text-xs text-gray-500">ይህንን ክፍል መክፈት የሚችለው ዘላለም እሸቱ ብቻ ነው።</p>
+            </div>
+            <form onsubmit="unlockArea('admin', event)" class="space-y-3">
+                <input type="password" id="pass-admin" required autocomplete="current-password" placeholder="የይለፍ ቃል ያስገቡ" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none text-center">
+                <p id="err-admin" class="hidden text-xs text-rose-600 text-center font-semibold">የይለፍ ቃሉ ትክክል አይደለም!</p>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition-all"><i class="fa-solid fa-right-to-bracket"></i> ግባ</button>
+            </form>
+        </div>
+
+            <!-- Admin Entry Form & Email Settings Accordion -->
+            <section id="adminSection" class="hidden bg-white rounded-2xl p-6 sm:p-8 custom-shadow space-y-6 no-print">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-pen-to-square text-indigo-600"></i>
+                        <span>የዕለት ገቢና ወጪ መመዝገቢያ (Admin Panel)</span>
+                    </h2>
+                    <button type="button" onclick="lockArea('admin')" class="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center space-x-1 space-x-reverse bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>ዝጋ</span>
+                    </button>
+                    <button type="button" onclick="toggleEmailConfig()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center space-x-1 space-x-reverse bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">
+                        <i class="fa-solid fa-envelope-gear"></i>
+                        <span>የኢሜል ማስታወቂያ እና ቴምፕሌት ቅንብር</span>
+                    </button>
+                </div>
+
+                <!-- Email Settings & Template Customizer Panel -->
+                <div id="emailConfigPanel" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm space-y-4">
+                    <div class="font-bold text-gray-700 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        <span>የኢሜል ኖቲፊኬሽን እና የቴምፕሌት ማስገቢያ</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">የዘላለም እሸቱ ኢሜል፡</label>
+                            <input type="email" id="zelalemEmail" value="zelalemeshetuhabtu@gmail.com" readonly class="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs bg-gray-100 text-gray-600 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">የአበባው የቆየ ኢሜል፡</label>
+                            <input type="email" id="abebawEmail" value="abebawyekoye04@gmail.com" readonly class="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs bg-gray-100 text-gray-600 cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">የኢሜል ርዕስ (Email Subject Template):</label>
+                            <input type="text" id="emailSubjectTemplate" value="አዲስ ገቢ መዝገብ፡ {amount} ብር ተመዝግቧል" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">የኢሜል መልዕክት ይዘት (Email Body Template):</label>
+                            <textarea id="emailBodyTemplate" rows="9" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono">ሰላም {member_name}፣
+በቀን {date} የተመዘገበ የጋራ መኪና ሂሳብ፦
+
+የተገኘ ጠቅላላ ገቢ፡ {income} ብር
+የወጣ ወጪ፡ {expense} ብር
+የተጣራ ገቢ፡ {net} ብር
+የእርስዎ የዕለቱ ድርሻ (50%)፡ {share} ብር
+እስካሁን ያለዎት ጠቅላላ ድምር ድርሻ፡ {total} ብር
+
+ምክንያት፡ {desc}</textarea>
+                            <p class="text-[11px] text-gray-500 mt-1">ተግባራዊ ተለዋዋጮች፡ <code class="bg-gray-200 px-1 rounded">{member_name}</code>, <code class="bg-gray-200 px-1 rounded">{date}</code>, <code class="bg-gray-200 px-1 rounded">{income}</code>, <code class="bg-gray-200 px-1 rounded">{expense}</code>, <code class="bg-gray-200 px-1 rounded">{net}</code>, <code class="bg-gray-200 px-1 rounded">{share}</code>, <code class="bg-gray-200 px-1 rounded">{total}</code>, <code class="bg-gray-200 px-1 rounded">{desc}</code></p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2 space-x-reverse pt-2">
+                        <input type="checkbox" id="enableEmailNotify" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                        <label for="enableEmailNotify" class="text-xs text-gray-700 font-medium">አዲስ ገቢ ሲመዘገብ ለአባላቱ አውቶማቲክ ኢሜል ይላክ</label>
+                    </div>
+                </div>
+
+                <!-- Form Inputs -->
+                <form id="recordForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ቀን <span class="text-red-500">*</span></label>
+                        <input type="text" inputmode="numeric" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" placeholder="ዓዓዓዓ-ወወ-ቀቀ (2026-11-04)" autocomplete="off" title="ቀን በዚህ ቅርጽ ይጻፉ፦ 2026-11-04" id="dateInput" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">የተገኘ ገቢ (ብር)</label>
+                        <input type="number" step="0.01" min="0" id="incomeInput" placeholder="0.00" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">የወጣ ወጪ (ብር)</label>
+                        <input type="number" step="0.01" min="0" id="expenseInput" placeholder="0.00" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ምክንያት / ዝርዝር <span class="text-red-500">*</span></label>
+                        <input type="text" id="descInput" required placeholder="ምሳሌ፡ የዕለት ገቢ፣ የነዳጅ..." class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div class="sm:col-span-2 lg:col-span-4 flex justify-end">
+                        <button type="submit" id="submitBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-xl shadow-md transition-all flex items-center space-x-2 space-x-reverse cursor-pointer">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>መዝግብ እና ለአባላት አጋራ</span>
+                        </button>
+                    </div>
+                </form>
+                <!-- Car expense entry (shared expense) -->
+                <div class="border-t pt-6 space-y-4">
+                    <h3 class="text-base font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-screwdriver-wrench text-rose-600"></i>
+                        <span>ለመኪናው የወጣ ወጪ መመዝገቢያ (የጋራ ወጪ)</span>
+                    </h3>
+                    <form id="carExpenseForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ቀን <span class="text-red-500">*</span></label>
+                            <input type="text" inputmode="numeric" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" placeholder="ዓዓዓዓ-ወወ-ቀቀ (2026-11-04)" autocomplete="off" title="ቀን በዚህ ቅርጽ ይጻፉ፦ 2026-11-04" id="ceDate" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-rose-500 outline-none">
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">የወጣበት ምክንያት <span class="text-red-500">*</span></label>
+                            <input type="text" id="ceReason" required placeholder="ምሳሌ፡ ጎማ ማስቀየሪያ፣ ዘይት..." class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-rose-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ጠቅላላ ወጪ (ብር) <span class="text-red-500">*</span></label>
+                            <input type="number" step="0.01" min="0.01" id="ceAmount" required placeholder="0.00" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-rose-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ወጪውን ያዋጣው <span class="text-red-500">*</span></label>
+                            <select id="cePayer" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-rose-500 outline-none bg-white">
+                                <option value="zelalem">ዘላለም እሸቱ</option>
+                                <option value="abebaw">አበባው የቆየ</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2 lg:col-span-5 flex justify-end">
+                            <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-8 py-3 rounded-xl shadow-md transition-all flex items-center space-x-2 space-x-reverse cursor-pointer">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>የመኪና ወጪ መዝግብ</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </section>
+
+            <!-- Electricity Reading Card (Admin only) -->
+            <section id="electricSection" class="hidden bg-white rounded-2xl custom-shadow p-6 space-y-4 border-t-4 border-yellow-500 no-print">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-bolt text-yellow-500"></i>
+                        <span>የኤሌክትሪክ ንባብ</span>
+                        <span id="elecCount" class="text-[11px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold"></span>
+                        <i class="fa-solid fa-chevron-down text-gray-400"></i>
+                    </h2>
+                    <p class="text-xs text-gray-500">የወሩን ንባብ ያስገቡ፤ ከቀድሞው ንባብ ተቀንሶ በእርከን ታሪፍ የክፍያ ዋጋ ይሰላል።</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                    <div class="bg-yellow-50 rounded-xl p-3 border border-yellow-100"><div class="text-[11px] text-gray-500">የመጨረሻ ንባብ</div><div id="elecLast" class="font-extrabold text-yellow-700">-</div></div>
+                    <div class="bg-indigo-50 rounded-xl p-3 border border-indigo-100"><div class="text-[11px] text-gray-500">የመጨረሻ ፍጆታ (ኪ.ዋ.ሰ)</div><div id="elecLastKwh" class="font-extrabold text-indigo-600">-</div></div>
+                    <div class="bg-rose-50 rounded-xl p-3 border border-rose-100"><div class="text-[11px] text-gray-500">የመጨረሻ የክፍያ ዋጋ</div><div id="elecLastCost" class="font-extrabold text-rose-600">-</div></div>
+                </div>
+                <form id="elecForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ቀን <span class="text-red-500">*</span></label>
+                        <input type="text" inputmode="numeric" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" placeholder="ዓዓዓዓ-ወወ-ቀቀ (2026-11-04)" autocomplete="off" title="ቀን በዚህ ቅርጽ ይጻፉ፦ 2026-11-04" id="elecDate" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-yellow-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ቀዳሚ ንባብ <span id="elecPrevHint" class="text-[11px] text-gray-400"></span></label>
+                        <input type="number" step="0.01" min="0" id="elecPrev" required placeholder="0" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-yellow-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">የአሁን ንባብ <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.01" min="0" id="elecCur" required placeholder="0" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-yellow-500 outline-none">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md transition-all"><i class="fa-solid fa-plus"></i> ንባብ መዝግብ</button>
+                    </div>
+                </form>
+                <div id="elecPreview" class="hidden rounded-xl bg-yellow-50 border border-yellow-200 p-3 text-sm space-y-1"></div>
+                <div id="elecRangeBox" class="no-print"></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                <th class="px-3 py-2">ቀን</th>
+                                <th class="px-3 py-2 text-right">ቀዳሚ ንባብ</th>
+                                <th class="px-3 py-2 text-right">የአሁን ንባብ</th>
+                                <th class="px-3 py-2 text-right">ፍጆታ (ኪ.ዋ.ሰ)</th>
+                                <th class="px-3 py-2 text-right">የክፍያ ዋጋ (ብር)</th>
+                                <th class="px-3 py-2 text-center">ተግባር</th>
+                            </tr>
+                        </thead>
+                        <tbody id="elecBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Car Expenses Card -->
+            <section class="bg-white rounded-2xl custom-shadow p-6 space-y-4 border-t-4 border-rose-500">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-screwdriver-wrench text-rose-600"></i>
+                        <span>ለመኪናው የወጣ ወጪ (የጋራ ወጪ)</span>
+                        <i id="carDashChev" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                    </h2>
+                    <p class="text-xs text-gray-500">ያወጣው ሰው ከሌላው 50% ተመላሽ ይጠብቃል፤ ያላዋጣው እዳ ይያዝበታል። ዝርዝሩን ለማየት ይንኩ።</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                    <div class="bg-rose-50 rounded-xl p-3 border border-rose-100"><div class="text-[11px] text-gray-500">ጠቅላላ የመኪና ወጪ</div><div id="carTotalAll" class="font-extrabold text-rose-600">0.00 ብር</div></div>
+                    <div class="bg-blue-50 rounded-xl p-3 border border-blue-100"><div class="text-[11px] text-gray-500">ዘላለም ያዋጣው</div><div id="carPaidZ" class="font-extrabold text-blue-600">0.00 ብር</div></div>
+                    <div class="bg-purple-50 rounded-xl p-3 border border-purple-100"><div class="text-[11px] text-gray-500">አበባው ያዋጣው</div><div id="carPaidA" class="font-extrabold text-purple-600">0.00 ብር</div></div>
+                </div>
+                <div id="carDashSummary" class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm font-semibold text-gray-800 space-y-1"></div>
+                <div id="carRangeBox" class="no-print"></div>
+                <div id="carDashBox" class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                <th class="px-3 py-2">ቀን</th>
+                                <th class="px-3 py-2">ምክንያት</th>
+                                <th class="px-3 py-2 text-right">ጠቅላላ ወጪ</th>
+                                <th class="px-3 py-2">ያዋጣው</th>
+                                <th class="px-3 py-2">ተመላሽ / እዳ</th>
+                                <th class="px-3 py-2 text-center no-print">ተግባር</th>
+                            </tr>
+                        </thead>
+                        <tbody id="carDashBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                    </table>
+                </div>
+            </section>
+            <!-- Followers Card -->
+            <section class="bg-white rounded-2xl custom-shadow p-6 space-y-4 border-t-4 border-sky-500 no-print">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-bell text-sky-600"></i>
+                        <span>መረጃችንን ለመከታተል ኢሜል ይመዝገቡ</span>
+                        <span id="followerCount" class="text-[11px] bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-bold"></span>
+                    </h2>
+                    <p class="text-xs text-gray-500">ኢሜልዎን ካስገቡ በየቀኑ የተገኘው የቀኑ ጠቅላላ ገቢ ብቻ በኢሜል ይደርስዎታል።</p>
+                </div>
+                <form id="followerForm" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input type="text" id="followerName" placeholder="ስም (አማራጭ)" class="px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-500 outline-none text-sm">
+                    <input type="email" id="followerEmail" required placeholder="ኢሜል አድራሻ" class="px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-500 outline-none text-sm">
+                    <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-md transition-all text-sm"><i class="fa-solid fa-plus"></i> ተከታታይ ሁን</button>
+                </form>
+                <details class="text-xs text-gray-600">
+                    <summary class="cursor-pointer font-semibold">ከመከታተል ለመውጣት</summary>
+                    <form id="unfollowForm" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        <input type="email" id="unfollowEmail" required placeholder="የተመዘገቡበትን ኢሜል ያስገቡ" class="sm:col-span-2 px-4 py-2.5 rounded-xl border border-gray-300 outline-none text-sm">
+                        <button type="submit" class="bg-slate-200 hover:bg-slate-300 text-gray-700 font-semibold px-4 py-2.5 rounded-xl text-sm">አስወግደኝ</button>
+                    </form>
+                </details>
+                <div id="followerList" class="flex flex-wrap gap-2 text-xs"></div>
+            </section>
+
+
+            <!-- Dashboard Report Card (week / month / year) -->
+            <section class="bg-white rounded-2xl custom-shadow p-6 space-y-4 border-t-4 border-emerald-500">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                            <i class="fa-solid fa-calendar-days text-emerald-600"></i>
+                            <span id="dashRepTitle">ወርሃዊ የገቢና የወጪ ሪፖርት (አጠቃላይ)</span>
+                        </h2>
+                        <p class="text-xs text-gray-500">የተጣራ = ገቢ − ወጪ − የመኪና ወጪ</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1 text-xs font-semibold no-print">
+                        <button id="dashRepBtn-week" onclick="setDashPeriod('week')" class="px-3 py-1.5 rounded-lg">ሳምንት</button>
+                        <button id="dashRepBtn-month" onclick="setDashPeriod('month')" class="px-3 py-1.5 rounded-lg">ወር</button>
+                        <button id="dashRepBtn-year" onclick="setDashPeriod('year')" class="px-3 py-1.5 rounded-lg">ዓመት</button>
+                        <button onclick="exportReport('dash','print')" class="px-3 py-1.5 rounded-lg bg-slate-100 text-gray-700 hover:bg-slate-200"><i class="fa-solid fa-print text-indigo-600"></i> አትም</button>
+                            <button onclick="exportReport('dash','word')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"><i class="fa-solid fa-file-word"></i> ዎርድ</button>
+                            <button onclick="exportReport('dash','excel')" class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"><i class="fa-solid fa-file-excel"></i> ኤክሴል</button>
+                        <button onclick="sendMonthlyReport()" class="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"><i class="fa-solid fa-envelope"></i> ለአባላት በኢሜል ላክ</button>
+                    </div>
+                </div>
+                <div id="dashRangeBox" class="no-print"></div>
+<div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                <th class="px-3 py-2">ጊዜ</th>
+                                <th class="px-3 py-2 text-right">ገቢ</th>
+                                <th class="px-3 py-2 text-right">ወጪ</th>
+                                <th class="px-3 py-2 text-right">የመኪና ወጪ</th>
+                                <th class="px-3 py-2 text-right">የተጣራ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- All Records Table (With Print & Export to Word Buttons) -->
+            <section class="bg-white rounded-2xl custom-shadow p-6 space-y-4 print-area">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+                    <div id="recordsToggle" class="flex-1">
+                        <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2 space-x-reverse">
+                            <i class="fa-solid fa-list-check text-indigo-600"></i>
+                            <span>የተመዘገቡ አጠቃላይ ገቢዎች እና ወጪዎች ሪፖርት</span>
+                            <span id="recordsCount" class="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold"></span>
+                            <i id="recordsChevron" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                        </h2>
+                        <p class="text-xs text-gray-500">ዝርዝሩን ለማሳየት ወይም ለመደበቅ ርዕሱን ይንኩ። ማተም እና ወደ Word መለወጥ ይችላሉ።</p>
+                    </div>
+
+                    <div class="flex items-center space-x-2 space-x-reverse no-print">
+                        <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse">
+                            <i class="fa-solid fa-print text-indigo-600"></i>
+                            <span>ማተሚያ (Print)</span>
+                        </button>
+                        <button onclick="exportAllToWord()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse border border-blue-200">
+                            <i class="fa-solid fa-file-word text-blue-600"></i>
+                            <span>ወደ ዎርድ አውርድ (.doc)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="recordsRangeBox" class="no-print"></div>
+                <div id="recordsTableWrap" class="overflow-x-auto">
+                    <table id="mainRecordsTable" class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs uppercase tracking-wider border-b">
+                                <th class="px-4 py-3 text-center">ተራ ቁ.</th>
+                                <th class="px-4 py-3">ቀን</th>
+                                <th class="px-4 py-3">ምክንያት/ዝርዝር</th>
+                                <th class="px-4 py-3 text-right">የተገኘ ገቢ</th>
+                                <th class="px-4 py-3 text-right">የወጣ ወጪ</th>
+                                <th class="px-4 py-3 text-right">የተጣራ ገቢ</th>
+                                <th class="px-4 py-3 text-right">የአንድ አባል ድርሻ</th>
+                                <th class="px-4 py-3 text-center no-print">ተግባር</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mainTableBody" class="divide-y divide-gray-100 text-xs">
+                            <!-- Dynamic Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: ZELALEM ESHETU PORTAL               -->
+        <!-- ========================================== -->
+        <div id="tabContent-zelalem" class="tab-content hidden space-y-6">
+        <div id="lock-zelalem" class="bg-white rounded-2xl custom-shadow p-8 max-w-md mx-auto border-t-4 border-blue-600 space-y-4 no-print">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-lock"></i></div>
+                <h2 class="text-lg font-bold text-gray-800">የዘላለም እሸቱ የግል ገፅ</h2>
+                <p class="text-xs text-gray-500">ለመግባት የዘላለምን የይለፍ ቃል ያስገቡ።</p>
+            </div>
+            <form onsubmit="unlockArea('zelalem', event)" class="space-y-3">
+                <input type="password" id="pass-zelalem" required autocomplete="current-password" placeholder="የይለፍ ቃል ያስገቡ" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-center">
+                <p id="err-zelalem" class="hidden text-xs text-rose-600 text-center font-semibold">የይለፍ ቃሉ ትክክል አይደለም!</p>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition-all"><i class="fa-solid fa-right-to-bracket"></i> ግባ</button>
+            </form>
+        </div>
+
+            <div id="portal-zelalem" class="hidden bg-white rounded-2xl custom-shadow p-6 border-t-4 border-blue-600 space-y-6 print-area">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">ዘእ</div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">የዘላለም እሸቱ የግል ገፅ (Member Portal)</h2>
+                            <p class="text-xs text-gray-500">ድርሻ፡ 50% | የደረስዎትን ክፍያ መቆጣጠሪያ</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons for Zelalem -->
+                    <div class="flex items-center space-x-2 space-x-reverse no-print">
+                        <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse">
+                            <i class="fa-solid fa-print text-blue-600"></i>
+                            <span>ማተሚያ (Print)</span>
+                        </button>
+                        <button onclick="lockArea('zelalem')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse border border-rose-200">
+                            <i class="fa-solid fa-lock"></i><span>ውጣ</span>
+                        </button>
+                        <button onclick="exportMemberToExcel('ዘላለም እሸቱ', zelalemRecordsData)" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse border border-emerald-200">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                            <span>ወደ ኤክሴል አውርድ (.csv)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Personal Balance Card -->
+                <div class="bg-blue-50/60 p-4 rounded-xl border border-blue-100 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-semibold text-gray-600 block">ጠቅላላ የሚገባዎት የድርሻ ሂሳብ፡</span>
+                        <span class="text-2xl font-extrabold text-blue-700" id="zelalemPortalTotal">0.00 ብር</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-500 block">የክፍያ ሁኔታ፡</span>
+                        <span class="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full">50% ድርሻ</span>
+                    </div>
+                </div>
+
+                <!-- Payment confirmation summary -->
+                <div id="zelalemPaySummary" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        <div class="text-[11px] font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i> ተቀብያለሁ (I accept)</div>
+                        <div class="text-lg font-extrabold text-emerald-700" id="zelalemAccSum">0.00 ብር</div>
+                        <div class="text-[11px] text-gray-500"><span id="zelalemAccCnt">0</span> ክፍያዎች</div>
+                    </div>
+                    <div class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                        <div class="text-[11px] font-semibold text-rose-700"><i class="fa-solid fa-circle-xmark"></i> አልተቀበልኩም (Do not accept)</div>
+                        <div class="text-lg font-extrabold text-rose-700" id="zelalemNotSum">0.00 ብር</div>
+                        <div class="text-[11px] text-gray-500"><span id="zelalemNotCnt">0</span> ክፍያዎች</div>
+                    </div>
+                </div>
+
+                <!-- Car expense balance -->
+                <div class="rounded-xl border border-blue-200 p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-scale-balanced text-blue-600"></i> የመኪና ወጪ ሂሳብ (ተመላሽ / እዳ)</h3>
+                        <i id="zelalemCarChev" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                    </div>
+                    <div id="zelalemCarSummary" class="text-sm font-semibold space-y-1"></div>
+                    <div id="zelalemCarBox" class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                    <th class="px-3 py-2">ቀን</th>
+                                    <th class="px-3 py-2">ምክንያት</th>
+                                    <th class="px-3 py-2 text-right">ጠቅላላ</th>
+                                    <th class="px-3 py-2">ያዋጣው</th>
+                                    <th class="px-3 py-2">ሁኔታ</th>
+                                    <th class="px-3 py-2 text-center no-print">ተግባር</th>
+                                </tr>
+                            </thead>
+                            <tbody id="zelalemCarBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Income report (week / month / year) -->
+                <div class="rounded-xl border border-blue-200 p-4 space-y-3">
+                    <div class="flex flex-wrap justify-between items-center gap-3">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-chart-column text-blue-600"></i> <span id="zelalemRepTitle">የገቢ ሪፖርት</span></h3>
+                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold no-print">
+                            <button id="zelalemRepBtn-week" onclick="setReportPeriod('zelalem','week')" class="px-3 py-1.5 rounded-lg">ሳምንት</button>
+                            <button id="zelalemRepBtn-month" onclick="setReportPeriod('zelalem','month')" class="px-3 py-1.5 rounded-lg">ወር</button>
+                            <button id="zelalemRepBtn-year" onclick="setReportPeriod('zelalem','year')" class="px-3 py-1.5 rounded-lg">ዓመት</button>
+                            <button onclick="sendMemberReport('zelalem')" class="ml-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-envelope"></i> ወደ ኢሜል ላክ</button>
+                            <button onclick="exportReport('zelalem','print')" class="px-3 py-1.5 rounded-lg bg-slate-100 text-gray-700 hover:bg-slate-200"><i class="fa-solid fa-print text-indigo-600"></i> አትም</button>
+                            <button onclick="exportReport('zelalem','word')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"><i class="fa-solid fa-file-word"></i> ዎርድ</button>
+                            <button onclick="exportReport('zelalem','excel')" class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"><i class="fa-solid fa-file-excel"></i> ኤክሴል</button>
+                        </div>
+                    </div>
+                    <div id="zelalemRangeBox" class="no-print"></div>
+<div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                    <th class="px-3 py-2">ጊዜ</th>
+                                    <th class="px-3 py-2 text-right">ገቢ</th>
+                                    <th class="px-3 py-2 text-right">ወጪ</th>
+                                    <th class="px-3 py-2 text-right">የተጣራ</th>
+                                    <th class="px-3 py-2 text-right">የእርስዎ ድርሻ (50%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="zelalemRepBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Money transfer links -->
+                <div id="zelalemXferCard" class="rounded-xl border border-blue-200 p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-link text-blue-600"></i> የገንዘብ ልውውጥ ሊንክ ማስቀመጫ <span id="zelalemXferCount" class="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold"></span></h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400"></i>
+                    </div>
+                    <div id="zelalemXferBox" class="space-y-4"></div>
+                </div>
+
+                <!-- Personal Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs uppercase border-b">
+                                <th class="px-4 py-3 text-center">ተራ ቁ.</th>
+                                <th class="px-4 py-3">ቀን</th>
+                                <th class="px-4 py-3">ዝርዝር</th>
+                                <th class="px-4 py-3 text-right">የጋራ የተጣራ ገቢ</th>
+                                <th class="px-4 py-3 text-right">የእርስዎ ድርሻ (50%)</th>
+                                <th class="px-4 py-3 text-center">የክፍያ ሁኔታ (ኦን/ኦፍ)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zelalemPortalBody" class="divide-y divide-gray-100 text-xs">
+                            <!-- Dynamic Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: ABEBAW YEKOYE PORTAL                -->
+        <!-- ========================================== -->
+        <div id="tabContent-abebaw" class="tab-content hidden space-y-6">
+        <div id="lock-abebaw" class="bg-white rounded-2xl custom-shadow p-8 max-w-md mx-auto border-t-4 border-purple-600 space-y-4 no-print">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-lock"></i></div>
+                <h2 class="text-lg font-bold text-gray-800">የአበባው የቆየ የግል ገፅ</h2>
+                <p class="text-xs text-gray-500">ለመግባት የአበባውን የይለፍ ቃል ያስገቡ።</p>
+            </div>
+            <form onsubmit="unlockArea('abebaw', event)" class="space-y-3">
+                <input type="password" id="pass-abebaw" required autocomplete="current-password" placeholder="የይለፍ ቃል ያስገቡ" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-500 outline-none text-center">
+                <p id="err-abebaw" class="hidden text-xs text-rose-600 text-center font-semibold">የይለፍ ቃሉ ትክክል አይደለም!</p>
+                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 rounded-xl shadow-md transition-all"><i class="fa-solid fa-right-to-bracket"></i> ግባ</button>
+            </form>
+        </div>
+
+            <div id="portal-abebaw" class="hidden bg-white rounded-2xl custom-shadow p-6 border-t-4 border-purple-600 space-y-6 print-area">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">አየ</div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">የአበባው የቆየ የግል ገፅ (Member Portal)</h2>
+                            <p class="text-xs text-gray-500">ድርሻ፡ 50% | የደረስዎትን ክፍያ መቆጣጠሪያ</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons for Abebaw -->
+                    <div class="flex items-center space-x-2 space-x-reverse no-print">
+                        <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse">
+                            <i class="fa-solid fa-print text-purple-600"></i>
+                            <span>ማተሚያ (Print)</span>
+                        </button>
+                        <button onclick="lockArea('abebaw')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse border border-rose-200">
+                            <i class="fa-solid fa-lock"></i><span>ውጣ</span>
+                        </button>
+                        <button onclick="exportMemberToExcel('አበባው የቆየ', abebawRecordsData)" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 space-x-reverse border border-emerald-200">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                            <span>ወደ ኤክሴል አውርድ (.csv)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Personal Balance Card -->
+                <div class="bg-purple-50/60 p-4 rounded-xl border border-purple-100 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-semibold text-gray-600 block">ጠቅላላ የሚገባዎት የድርሻ ሂሳብ፡</span>
+                        <span class="text-2xl font-extrabold text-purple-700" id="abebawPortalTotal">0.00 ብር</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-500 block">የክፍያ ሁኔታ፡</span>
+                        <span class="text-xs font-bold bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full">50% ድርሻ</span>
+                    </div>
+                </div>
+
+                <!-- Payment confirmation summary -->
+                <div id="abebawPaySummary" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        <div class="text-[11px] font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i> ተቀብያለሁ (I accept)</div>
+                        <div class="text-lg font-extrabold text-emerald-700" id="abebawAccSum">0.00 ብር</div>
+                        <div class="text-[11px] text-gray-500"><span id="abebawAccCnt">0</span> ክፍያዎች</div>
+                    </div>
+                    <div class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                        <div class="text-[11px] font-semibold text-rose-700"><i class="fa-solid fa-circle-xmark"></i> አልተቀበልኩም (Do not accept)</div>
+                        <div class="text-lg font-extrabold text-rose-700" id="abebawNotSum">0.00 ብር</div>
+                        <div class="text-[11px] text-gray-500"><span id="abebawNotCnt">0</span> ክፍያዎች</div>
+                    </div>
+                </div>
+
+                <!-- Car expense balance -->
+                <div class="rounded-xl border border-purple-200 p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-scale-balanced text-purple-600"></i> የመኪና ወጪ ሂሳብ (ተመላሽ / እዳ)</h3>
+                        <i id="abebawCarChev" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                    </div>
+                    <div id="abebawCarSummary" class="text-sm font-semibold space-y-1"></div>
+                    <div id="abebawCarBox" class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                    <th class="px-3 py-2">ቀን</th>
+                                    <th class="px-3 py-2">ምክንያት</th>
+                                    <th class="px-3 py-2 text-right">ጠቅላላ</th>
+                                    <th class="px-3 py-2">ያዋጣው</th>
+                                    <th class="px-3 py-2">ሁኔታ</th>
+                                    <th class="px-3 py-2 text-center no-print">ተግባር</th>
+                                </tr>
+                            </thead>
+                            <tbody id="abebawCarBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Income report (week / month / year) -->
+                <div class="rounded-xl border border-purple-200 p-4 space-y-3">
+                    <div class="flex flex-wrap justify-between items-center gap-3">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-chart-column text-purple-600"></i> <span id="abebawRepTitle">የገቢ ሪፖርት</span></h3>
+                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold no-print">
+                            <button id="abebawRepBtn-week" onclick="setReportPeriod('abebaw','week')" class="px-3 py-1.5 rounded-lg">ሳምንት</button>
+                            <button id="abebawRepBtn-month" onclick="setReportPeriod('abebaw','month')" class="px-3 py-1.5 rounded-lg">ወር</button>
+                            <button id="abebawRepBtn-year" onclick="setReportPeriod('abebaw','year')" class="px-3 py-1.5 rounded-lg">ዓመት</button>
+                            <button onclick="sendMemberReport('abebaw')" class="ml-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-envelope"></i> ወደ ኢሜል ላክ</button>
+                            <button onclick="exportReport('abebaw','print')" class="px-3 py-1.5 rounded-lg bg-slate-100 text-gray-700 hover:bg-slate-200"><i class="fa-solid fa-print text-indigo-600"></i> አትም</button>
+                            <button onclick="exportReport('abebaw','word')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"><i class="fa-solid fa-file-word"></i> ዎርድ</button>
+                            <button onclick="exportReport('abebaw','excel')" class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"><i class="fa-solid fa-file-excel"></i> ኤክሴል</button>
+                        </div>
+                    </div>
+                    <div id="abebawRangeBox" class="no-print"></div>
+<div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                                    <th class="px-3 py-2">ጊዜ</th>
+                                    <th class="px-3 py-2 text-right">ገቢ</th>
+                                    <th class="px-3 py-2 text-right">ወጪ</th>
+                                    <th class="px-3 py-2 text-right">የተጣራ</th>
+                                    <th class="px-3 py-2 text-right">የእርስዎ ድርሻ (50%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="abebawRepBody" class="divide-y divide-gray-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Money transfer links -->
+                <div id="abebawXferCard" class="rounded-xl border border-purple-200 p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-link text-purple-600"></i> የገንዘብ ልውውጥ ሊንክ ማስቀመጫ <span id="abebawXferCount" class="text-[11px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold"></span></h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400"></i>
+                    </div>
+                    <div id="abebawXferBox" class="space-y-4"></div>
+                </div>
+
+                <!-- Personal Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-gray-600 font-semibold text-xs uppercase border-b">
+                                <th class="px-4 py-3 text-center">ተራ ቁ.</th>
+                                <th class="px-4 py-3">ቀን</th>
+                                <th class="px-4 py-3">ዝርዝር</th>
+                                <th class="px-4 py-3 text-right">የጋራ የተጣራ ገቢ</th>
+                                <th class="px-4 py-3 text-right">የእርስዎ ድርሻ (50%)</th>
+                                <th class="px-4 py-3 text-center">የክፍያ ሁኔታ (ኦን/ኦፍ)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="abebawPortalBody" class="divide-y divide-gray-100 text-xs">
+                            <!-- Dynamic Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto no-print">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-center text-xs text-gray-500">
+            &copy; 2026 የጋራ መኪና ገቢ እና ድርሻ መቆጣጠሪያ አፕሊኬሽን (የተሻሻለ)።
+        </div>
+    </footer>
+
+    <!-- Edit record modal -->
+    <div id="editModal" class="hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 no-print">
+        <form id="editForm" class="bg-white rounded-2xl custom-shadow w-full max-w-md p-6 space-y-3" autocomplete="off">
+            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-pen-to-square text-indigo-600"></i> መዝገብ ማረም</h3>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ቀን</label>
+                <input type="text" id="editDate" required inputmode="numeric" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" placeholder="ዓዓዓዓ-ወወ-ቀቀ (2026-11-04)" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">የተገኘ ገቢ (ብር)</label>
+                    <input type="number" step="0.01" min="0" id="editIncome" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">የወጣ ወጪ (ብር)</label>
+                    <input type="number" step="0.01" min="0" id="editExpense" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ምክንያት / ዝርዝር</label>
+                <input type="text" id="editDesc" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl">አስቀምጥ</button>
+                <button type="button" onclick="closeEdit()" class="bg-slate-200 hover:bg-slate-300 text-gray-700 font-semibold py-2.5 rounded-xl">ተው</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Password change modal -->
+    <div id="pwModal" class="hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl custom-shadow w-full max-w-sm p-6 space-y-4">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-key"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">የይለፍ ቃል መቀየር</h3>
+                <p id="pwWho" class="text-xs text-gray-500"></p>
+            </div>
+            <div id="pwAsk" class="space-y-3">
+                <p class="text-sm text-center text-gray-700">የይለፍ ቃልዎን መቀየር ይፈልጋሉ?</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="button" onclick="pwChoose(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl">አዎ፣ እቀይራለሁ</button>
+                    <button type="button" onclick="pwChoose(false)" class="bg-slate-200 hover:bg-slate-300 text-gray-700 font-semibold py-2.5 rounded-xl">አይ፣ አሁን አይሆንም</button>
+                </div>
+            </div>
+            <form id="pwForm" class="hidden space-y-3" autocomplete="off">
+                <input type="password" id="pwNew" inputmode="numeric" pattern="\d{4}" maxlength="4" required placeholder="አዲስ ባለ 4 አሃዝ ቁጥር" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none text-center tracking-widest">
+                <input type="password" id="pwNew2" inputmode="numeric" pattern="\d{4}" maxlength="4" required placeholder="አዲሱን ቁጥር እንደገና ያስገቡ" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none text-center tracking-widest">
+                <p id="pwErr" class="hidden text-xs text-rose-600 text-center font-semibold"></p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl">አስቀምጥ</button>
+                    <button type="button" onclick="pwChoose(false)" class="bg-slate-200 hover:bg-slate-300 text-gray-700 font-semibold py-2.5 rounded-xl">ተው</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, remove, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ቀን እንደ ጽሑፍ (YYYY-MM-DD) ይጻፋል
+        function todayStr() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+        function validDateStr(v) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+            if (!m) return false;
+            const d = new Date(+m[1], +m[2] - 1, +m[3]);
+            return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3];
+        }
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqFQ313SQqziRQlNwdX0UYoEuYpHbB7Eo",
+            databaseURL: "https://coke-a581f-default-rtdb.firebaseio.com",
+            projectId: "coke-a581f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const carIncomeRef = ref(db, 'የመኪና ገቢ');
+
+        // Global dataset arrays for exports
+        window.allRecordsData = [];
+        window.zelalemRecordsData = [];
+        window.abebawRecordsData = [];
+
+        // Set default date
+        document.getElementById('dateInput').value = todayStr();
+
+        // UI Tabs Switcher
+        window.switchTab = function(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('text-indigo-200');
+            });
+
+            document.getElementById(`tabContent-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tabBtn-${tabName}`);
+            activeBtn.classList.add('bg-indigo-600', 'text-white');
+            activeBtn.classList.remove('text-indigo-200');
+        };
+
+        // Toggle Email Config Panel
+        window.toggleEmailConfig = function() {
+            const panel = document.getElementById('emailConfigPanel');
+            panel.classList.toggle('hidden');
+        };
+
+        // Custom Notification Alert
+        window.showAlert = function(message, type = 'success') {
+            const alertBox = document.getElementById('alertBox');
+            const alertMessage = document.getElementById('alertMessage');
+            const alertIcon = document.getElementById('alertIcon');
+
+            alertMessage.textContent = message;
+            alertBox.className = "no-print transition-all duration-300 p-4 rounded-xl flex items-center justify-between text-white font-medium shadow-md mb-6 " + 
+                (type === 'success' ? 'bg-emerald-600' : 'bg-rose-600');
+            
+            alertIcon.className = type === 'success' ? 'fa-solid fa-circle-check text-xl' : 'fa-solid fa-triangle-exclamation text-xl';
+            alertBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                alertBox.classList.add('hidden');
+            }, 4500);
+        };
+
+        window.closeAlert = function() {
+            document.getElementById('alertBox').classList.add('hidden');
+        };
+
+        // ==========================================
+        // PASSWORD PROTECTION
+        // ዘላለም: የመመዝገቢያ ፎርም + የግል ገፁ | አበባው: የግል ገፁ ብቻ
+        // የይለፍ ቃሉ በ SHA-256 hash ነው የተቀመጠው (ቀጥታ አልተጻፈም)
+        // ==========================================
+        const PASS_HASH = {
+            zelalem: 'fa3996f7829ea10e9c902f5b254857102a490a0f7c21671fa59493498c4f5e50',
+            abebaw:  '7fe3eb0185dd87ef14854f5aa1bbb2f56b9ebfce71f1678a98f3b15328b97723'
+        };
+        // የመመዝገቢያ ፎርም በዘላለም የይለፍ ቃል ይከፈታል
+        const CREDENTIAL = { admin: 'zelalem', zelalem: 'zelalem', abebaw: 'abebaw' };
+        const unlocked = { admin: false, zelalem: false, abebaw: false };
+
+        try {
+            ['admin', 'zelalem', 'abebaw'].forEach(k => {
+                unlocked[k] = sessionStorage.getItem('unlocked-' + k) === '1';
+            });
+        } catch (e) {}
+
+        async function sha256Hex(text) {
+            if (!window.crypto || !crypto.subtle) throw new Error('crypto unavailable');
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function applyLocks() {
+            const show = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); };
+            show('lock-admin', !unlocked.admin);
+            show('adminSection', unlocked.admin);
+            show('electricSection', unlocked.admin);
+            show('lock-zelalem', !unlocked.zelalem);
+            show('portal-zelalem', unlocked.zelalem);
+            show('lock-abebaw', !unlocked.abebaw);
+            show('portal-abebaw', unlocked.abebaw);
+            if (window.__ready) refreshDerived();
+        }
+
+        function setUnlocked(key, value) {
+            unlocked[key] = value;
+            try { sessionStorage.setItem('unlocked-' + key, value ? '1' : '0'); } catch (e) {}
+        }
+
+        // ---- የተቀየረ የይለፍ ቃል (Firebase ውስጥ በ hash ብቻ ይቀመጣል)
+        const passRef = ref(db, 'የይለፍቃል');
+        window.customPass = {};
+        onValue(passRef, (snap) => { window.customPass = snap.val() || {}; });
+
+        async function effectiveHash(member) {
+            try {
+                const snap = await get(ref(db, 'የይለፍቃል/' + member));
+                const v = snap.val();
+                return (v && v.hash) || PASS_HASH[member];
+            } catch (e) {
+                const v = (window.customPass || {})[member];
+                return (v && v.hash) || PASS_HASH[member];
+            }
+        }
+
+        let pwMember = null;
+        function askPasswordChange(member) {
+            pwMember = member;
+            document.getElementById('pwWho').textContent = MEMBER_NAMES_PW[member];
+            document.getElementById('pwAsk').classList.remove('hidden');
+            document.getElementById('pwForm').classList.add('hidden');
+            document.getElementById('pwErr').classList.add('hidden');
+            document.getElementById('pwNew').value = '';
+            document.getElementById('pwNew2').value = '';
+            document.getElementById('pwModal').classList.remove('hidden');
+        }
+        const MEMBER_NAMES_PW = { zelalem: 'ዘላለም እሸቱ', abebaw: 'አበባው የቆየ' };
+        window.pwChoose = function(yes) {
+            if (!yes) { document.getElementById('pwModal').classList.add('hidden'); return; }
+            document.getElementById('pwAsk').classList.add('hidden');
+            document.getElementById('pwForm').classList.remove('hidden');
+            document.getElementById('pwNew').focus();
+        };
+        document.getElementById('pwForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const a = document.getElementById('pwNew').value.trim();
+            const b = document.getElementById('pwNew2').value.trim();
+            const err = document.getElementById('pwErr');
+            const fail = msg => { err.textContent = msg; err.classList.remove('hidden'); };
+            if (!/^\d{4}$/.test(a)) { fail('የይለፍ ቃሉ በትክክል 4 አሃዝ (ቁጥር ብቻ) መሆን አለበት!'); return; }
+            if (a !== b) { fail('ሁለቱ ቁጥሮች አይመሳሰሉም!'); return; }
+            try {
+                const hash = await sha256Hex(a);
+                if (hash === await effectiveHash(pwMember)) { fail('አዲሱ ቁጥር ከአሁኑ የተለየ መሆን አለበት!'); return; }
+                await set(ref(db, 'የይለፍቃል/' + pwMember), { hash, ተቀየረበት: Date.now() });
+                document.getElementById('pwModal').classList.add('hidden');
+                showAlert('የይለፍ ቃልዎ ተቀይሯል! ከአሁን በኋላ አዲሱን ባለ 4 አሃዝ ቁጥር ይጠቀሙ።');
+            } catch (error) {
+                console.error(error);
+                fail('የይለፍ ቃሉን መቀየር አልተቻለም።');
+            }
+        });
+
+        window.unlockArea = async function(key, e) {
+            e.preventDefault();
+            const input = document.getElementById('pass-' + key);
+            const err = document.getElementById('err-' + key);
+            try {
+                const hash = await sha256Hex(input.value);
+                if (hash === await effectiveHash(CREDENTIAL[key])) {
+                    setUnlocked(key, true);
+                    // የዘላለም የይለፍ ቃል ሲገባ ፎርሙም የግል ገፁም አብረው ይከፈታሉ
+                    if (CREDENTIAL[key] === 'zelalem') { setUnlocked('admin', true); setUnlocked('zelalem', true); }
+                    err.classList.add('hidden');
+                    input.value = '';
+                    applyLocks();
+                    // ወደ ዘላለም ወይም አበባው ገፅ በገቡ ቁጥር የይለፍ ቃል መቀየር ይጠየቃሉ
+                    askPasswordChange(CREDENTIAL[key]);
+                } else {
+                    err.classList.remove('hidden');
+                    input.value = '';
+                    input.focus();
+                }
+            } catch (error) {
+                showAlert("የይለፍ ቃል ማረጋገጫ አልሰራም። ገፁን በ https ወይም localhost ይክፈቱ።", "error");
+            }
+        };
+
+        window.lockArea = function(key) {
+            setUnlocked(key, false);
+            if (CREDENTIAL[key] === 'zelalem') { setUnlocked('admin', false); setUnlocked('zelalem', false); }
+            applyLocks();
+        };
+
+        applyLocks();
+
+        // Form Submit Handler
+        document.getElementById('recordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!unlocked.admin) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+
+            const date = document.getElementById('dateInput').value;
+            const income = parseFloat(document.getElementById('incomeInput').value) || 0;
+            const expense = parseFloat(document.getElementById('expenseInput').value) || 0; // ባዶ ወይም 0 ከሆነ ወጪ = 0
+            const description = document.getElementById('descInput').value.trim();
+            const netIncome = income - expense;
+            const halfShare = netIncome / 2;
+
+            if (income === 0 && expense === 0) {
+                showAlert("እባክዎን ገቢ ወይም ወጪ ያስገቡ! (ወጪ 0 ከሆነ ገቢውን ብቻ ያስገቡ)", "error");
+                return;
+            }
+
+            // እስካሁን የተጠራቀመ ጠቅላላ ድርሻ (የዚህ አዲስ መዝገብ ሳይጨምር)
+            const prevTotalShare = (window.allRecordsData || []).reduce(
+                (sum, r) => sum + ((Number(r.የተገኘገቢ) || 0) - (Number(r.የወጣወጪ) || 0)) / 2, 0);
+            const newTotalShare = prevTotalShare + halfShare;
+            // የዚህ ቀን ጠቅላላ ገቢ (ለተከታዮች ኢሜል)
+            const dayIncome = (window.allRecordsData || []).filter(r => r.ቀን === date)
+                .reduce((sum, r) => sum + (Number(r.የተገኘገቢ) || 0), 0) + income;
+
+            try {
+                await push(carIncomeRef, {
+                    ቀን: date,
+                    የተገኘገቢ: income,
+                    የወጣወጪ: expense,
+                    የተጣራገቢ: netIncome,
+                    የአንድአባልድርሻ: halfShare,
+                    ምክንያት: description,
+                    ዘላለምተቀብያለሁ: false,
+                    አበባውተቀብያለሁ: false,
+                    የተመዘገበበትሰዓት: Date.now()
+                });
+
+                showAlert("መረጃው በስኬት ተመዝግቧል!");
+
+                // Check Email Notification logic
+                const notifyEnabled = document.getElementById('enableEmailNotify').checked;
+                if (notifyEnabled) {
+                    sendEmailNotifications({
+                        date, income, expense, net: netIncome, share: halfShare, total: newTotalShare, dayIncome, desc: description
+                    });
+                }
+                
+                // Clear Form
+                document.getElementById('incomeInput').value = '';
+                document.getElementById('expenseInput').value = '';
+                document.getElementById('descInput').value = '';
+                document.getElementById('dateInput').value = todayStr();
+
+            } catch (error) {
+                console.error("Error adding record: ", error);
+                showAlert("መረጃውን መመዝገብ አልተቻለም።", "error");
+            }
+        });
+
+        // ==========================================
+        // EmailJS (አውቶማቲክ ኢሜል መላኪያ)
+        // ማስታወሻ፡ ይህ ገጽ ኮድ ማንም ሰው ሊያየው ይችላል፤ ቁልፎቹን ለሌሎች አያጋሩ።
+        // ==========================================
+        const EMAILJS_PUBLIC_KEY  = '9SFpLGRP4WBp-TF3D';
+        const EMAILJS_SERVICE_ID  = 'service_sqs5nji';
+        const EMAILJS_TEMPLATE_ID = 'template_gok9im9';
+        const EMAILJS_PRIVATE_KEY = 'r14epGFo_jgm3wf19263i'; // Access Token (Private Key)
+
+        // የአባላት ኢሜል (ቋሚ)
+        const MEMBER_EMAILS = {
+            zelalem: 'zelalemeshetuhabtu@gmail.com',
+            abebaw:  'abebawyekoye04@gmail.com'
+        };
+
+        // EmailJS REST API (Public Key + Private Key/Access Token)
+        async function emailjsSend(templateParams) {
+            const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    service_id: EMAILJS_SERVICE_ID,
+                    template_id: EMAILJS_TEMPLATE_ID,
+                    user_id: EMAILJS_PUBLIC_KEY,
+                    accessToken: EMAILJS_PRIVATE_KEY,
+                    template_params: templateParams
+                })
+            });
+            if (!res.ok) throw new Error('EmailJS ' + res.status + ': ' + await res.text());
+            return res;
+        }
+
+        async function sendEmailNotifications(data) {
+            const subjectTpl = document.getElementById('emailSubjectTemplate').value;
+            const bodyTpl = document.getElementById('emailBodyTemplate').value;
+
+            const fmt = n => Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const formatTpl = (tpl, memberName) => tpl
+                .replace(/{member_name}/g, memberName)
+                .replace(/{date}/g, data.date)
+                .replace(/{income}/g, fmt(data.income))
+                .replace(/{expense}/g, fmt(data.expense))
+                .replace(/{net}/g, fmt(data.net))
+                .replace(/{share}/g, fmt(data.share))
+                .replace(/{total}/g, fmt(data.total))
+                .replace(/{amount}/g, fmt(data.income))
+                .replace(/{desc}/g, data.desc);
+
+            // ተከታዮች፦ የቀኑ ጠቅላላ ገቢ ብቻ (ወጪ፣ ድርሻ እና ዝርዝር አይላክም)
+            if (data.dayIncome > 0) {
+                sleep(2500).then(() => sendToFollowers(
+                    `የቀን ${data.date} ጠቅላላ ገቢ፡ ${money(data.dayIncome)} ብር`,
+                    `ሰላም፣\nበቀን ${data.date} የተገኘ ጠቅላላ ገቢ፡ ${money(data.dayIncome)} ብር`
+                )).catch(err => console.error('Follower email error', err));
+            }
+
+            const members = [
+                { name: "ዘላለም እሸቱ", email: MEMBER_EMAILS.zelalem },
+                { name: "አበባው የቆየ", email: MEMBER_EMAILS.abebaw }
+            ];
+
+            const results = await Promise.allSettled(members.map(m => {
+                if (!m.email) return Promise.reject(new Error('no email'));
+                return emailjsSend({
+                    to_email: m.email,
+                    to_name: m.name,
+                    subject: formatTpl(subjectTpl, m.name),
+                    message: formatTpl(bodyTpl, m.name),
+                    date: data.date,
+                    income: fmt(data.income),
+                    expense: fmt(data.expense),
+                    net: fmt(data.net),
+                    share: fmt(data.share),
+                    total: fmt(data.total),
+                    desc: data.desc
+                });
+            }));
+
+            const okCount = results.filter(r => r.status === 'fulfilled').length;
+            results.forEach((r, i) => { if (r.status === 'rejected') console.error('Email failed for', members[i].name, r.reason); });
+
+            if (okCount === members.length) showAlert("የኢሜል ማስታወቂያ ለሁለቱም አባላት ተልኳል!");
+            else if (okCount > 0) showAlert("ኢሜል ለአንድ አባል ብቻ ተልኳል፤ ሌላውን ኢሜል አድራሻ ያረጋግጡ።", "error");
+            else showAlert("ኢሜል መላክ አልተቻለም። ቅንብሩን ያረጋግጡ።", "error");
+        }
+
+        // ==========================================
+        // የመኪና ወጪ፣ ሪፖርቶች እና ተከታዮች
+        // ==========================================
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const money = n => Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        // ቀናት በቅደም ተከተል (አዲሱ ቀን መጀመሪያ)፤ ቀኑ እኩል ከሆነ በተመዘገበበት ሰዓት
+        const byDateDesc = (a, b) => {
+            const da = String(a.ቀን || ''), db_ = String(b.ቀን || '');
+            if (da !== db_) return da < db_ ? 1 : -1;
+            return (b.የተመዘገበበትሰዓት || 0) - (a.የተመዘገበበትሰዓት || 0);
+        };
+        const MEMBER_NAMES = { zelalem: 'ዘላለም እሸቱ', abebaw: 'አበባው የቆየ' };
+        const MEMBER_COLORS = { zelalem: 'bg-blue-600', abebaw: 'bg-purple-600' };
+        const otherOf = k => (k === 'zelalem' ? 'abebaw' : 'zelalem');
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const pad2 = n => String(n).padStart(2, '0');
+        const fmtDate = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+        const carExpenseRef = ref(db, 'የመኪና ወጪ');
+        const followersRef = ref(db, 'ተከታዮች');
+        window.carExpensesData = [];
+        window.followersData = [];
+        const reportPeriod = { zelalem: 'month', abebaw: 'month' };
+        const PERIOD_NAMES = { week: 'ሳምንታዊ', month: 'ወርሃዊ', year: 'ዓመታዊ' };
+        const PERIOD_LIMIT = { week: 12, month: 12, year: 10 };
+
+        window.toggleBox = function(boxId, chevId) {
+            const box = document.getElementById(boxId);
+            if (box) box.classList.toggle('hidden');
+            const chev = document.getElementById(chevId);
+            if (chev) chev.classList.toggle('rotate-180');
+        };
+        window.toggleRecords = function() { toggleBox('recordsTableWrap', 'recordsChevron'); };
+
+        // ---- Email helpers (በ1.1 ሰከንድ ልዩነት ይላካል፤ EmailJS የፍጥነት ገደብ አለው)
+        async function sendSequential(items) {
+            let ok = 0;
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                try {
+                    await emailjsSend({ to_email: it.email, to_name: it.name, subject: it.subject, message: it.message });
+                    ok++;
+                } catch (err) { console.error('Email failed for', it.email, err); }
+                if (i < items.length - 1) await sleep(1100);
+            }
+            return ok;
+        }
+        function followerItems(subject, message) {
+            return (window.followersData || []).filter(f => f.email)
+                .map(f => ({ email: f.email, name: f.name || 'ተከታታይ', subject, message }));
+        }
+        async function sendToFollowers(subject, message) {
+            return sendSequential(followerItems(subject, message));
+        }
+
+        // ---- የቀን ክልል መፈለጊያ (ከ — እስከ)፤ ቀን፣ ወር እና ዓመት በጽሑፍ ይጻፋሉ
+        const repRange = { dash: null, zelalem: null, abebaw: null, records: null, car: null, elec: null };
+        const ROW_SCOPES = { records: 'mainTableBody', car: 'carDashBody', elec: 'elecBody' };
+        // ረድፎችን በቀን ክልል መደበቅ/ማሳየት (ለዝርዝር ሠንጠረዦች)
+        function applyRowFilter(scope) {
+            const body = document.getElementById(ROW_SCOPES[scope]);
+            if (!body) return;
+            let shown = 0, total = 0;
+            body.querySelectorAll('tr').forEach(tr => {
+                const m = /\d{4}-\d{2}-\d{2}/.exec(tr.textContent);
+                if (!m) return; // "መረጃ የለም" ያለበት ረድፍ
+                total++;
+                const ok = inRange(m[0], scope);
+                tr.style.display = ok ? '' : 'none';
+                if (ok) shown++;
+            });
+            const el = document.getElementById(scope + '-rangeNote');
+            if (el) el.textContent = repRange[scope] ? `በማሳየት ላይ፦ ${repRange[scope].from || '…'} → ${repRange[scope].to || '…'} (${shown} ከ ${total})` : '';
+        }
+        function lastDayOf(y, m) { return new Date(y, m, 0).getDate(); }
+        function readSide(scope, side) {
+            const g = id => (document.getElementById(`${scope}-${side}-${id}`)?.value || '').trim();
+            const d = g('d'), m = g('m'), y = g('y');
+            if (!d && !m && !y) return { empty: true };
+            if (!/^\d{4}$/.test(y)) return { error: 'ዓመት በ4 አሃዝ ይጻፉ (ለምሳሌ 2026)' };
+            if (m && (!/^\d{1,2}$/.test(m) || +m < 1 || +m > 12)) return { error: 'ወር ከ1 እስከ 12 መሆን አለበት' };
+            if (d && !m) return { error: 'ቀን ካስገቡ ወሩንም ያስገቡ' };
+            if (d && (!/^\d{1,2}$/.test(d) || +d < 1 || +d > lastDayOf(+y, +m))) return { error: 'ቀኑ ትክክል አይደለም' };
+            const isEnd = side === 'to';
+            const mm = m ? +m : (isEnd ? 12 : 1);
+            const dd = d ? +d : (isEnd ? lastDayOf(+y, mm) : 1);
+            return { value: `${y}-${pad2(mm)}-${pad2(dd)}` };
+        }
+        window.applyRange = function(scope) {
+            const f = readSide(scope, 'from'), t = readSide(scope, 'to');
+            if (f.error || t.error) { showAlert(f.error || t.error, 'error'); return; }
+            if (f.empty && t.empty) { repRange[scope] = null; }
+            else {
+                const from = f.value || null, to = t.value || null;
+                if (from && to && from > to) { showAlert('"ከ" ቀን ከ"እስከ" ቀን መብለጥ የለበትም!', 'error'); return; }
+                repRange[scope] = { from, to };
+            }
+            rerenderScope(scope);
+        };
+        window.clearRange = function(scope) {
+            document.querySelectorAll(`#${scope}RangeBox input`).forEach(i => i.value = '');
+            repRange[scope] = null;
+            rerenderScope(scope);
+        };
+        function rerenderScope(scope) {
+            if (ROW_SCOPES[scope]) applyRowFilter(scope);
+            else if (scope === 'dash') renderMonthly(); else renderMemberReport(scope);
+        }
+        function inRange(dateStr, scope) {
+            const r = repRange[scope];
+            if (!r) return true;
+            const d = (dateStr || '').slice(0, 10);
+            return !(r.from && d < r.from) && !(r.to && d > r.to);
+        }
+        function buildRangeBox(scope) {
+            const box = document.getElementById(scope + 'RangeBox');
+            if (!box) return;
+            const cls = 'w-14 px-2 py-1.5 rounded-lg border border-gray-300 text-center text-xs outline-none focus:ring-2 focus:ring-indigo-400';
+            const side = (id, label) => `
+                <div class="flex items-center gap-1">
+                    <span class="font-semibold text-gray-600">${label}፦</span>
+                    <input id="${scope}-${id}-d" type="text" inputmode="numeric" maxlength="2" placeholder="ቀን" class="${cls}">
+                    <input id="${scope}-${id}-m" type="text" inputmode="numeric" maxlength="2" placeholder="ወር" class="${cls}">
+                    <input id="${scope}-${id}-y" type="text" inputmode="numeric" maxlength="4" placeholder="ዓመት" class="${cls} !w-20">
+                </div>`;
+            box.innerHTML = `<div class="flex flex-wrap items-center gap-3 text-xs bg-slate-50 rounded-xl border border-slate-200 px-3 py-2 mb-3">
+                <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                ${side('from', 'ከ')}${side('to', 'እስከ')}
+                <button type="button" onclick="applyRange('${scope}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">ፈልግ</button>
+                <button type="button" onclick="clearRange('${scope}')" class="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-gray-700 font-semibold">አጽዳ</button>
+                <span id="${scope}-rangeNote" class="text-[11px] text-indigo-700 font-semibold"></span>
+            </div>`;
+            box.querySelectorAll('input').forEach(i => {
+                i.addEventListener('input', () => { i.value = i.value.replace(/\D/g, ''); });
+                i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyRange(scope); } });
+            });
+        }
+        function rangeNote(scope) {
+            if (ROW_SCOPES[scope]) return;
+            const el = document.getElementById(scope + '-rangeNote');
+            const r = repRange[scope];
+            if (el) el.textContent = r ? `በማሳየት ላይ፦ ${r.from || '…'} → ${r.to || '…'}` : '';
+        }
+
+        // ---- Period helpers
+        function periodKey(dateStr, type) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || '');
+            if (!m) return null;
+            if (type === 'year') return m[1];
+            if (type === 'month') return m[1] + '-' + m[2];
+            const d = new Date(+m[1], +m[2] - 1, +m[3]);
+            d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
+            return fmtDate(d);
+        }
+        function periodLabel(key, type) {
+            if (type === 'week') {
+                const p = key.split('-').map(Number);
+                const d = new Date(p[0], p[1] - 1, p[2]);
+                d.setDate(d.getDate() + 6);
+                return `${key} → ${fmtDate(d)}`;
+            }
+            return key;
+        }
+        function aggregateIncome(type, scope) {
+            const map = {};
+            (window.allRecordsData || []).forEach(r => {
+                if (scope && !inRange(r.ቀን, scope)) return;
+                const key = periodKey(r.ቀን, type);
+                if (!key) return;
+                const m = map[key] || (map[key] = { key, income: 0, expense: 0 });
+                m.income += Number(r.የተገኘገቢ) || 0;
+                m.expense += Number(r.የወጣወጪ) || 0;
+            });
+            return Object.values(map).sort((a, b) => (a.key < b.key ? 1 : -1));
+        }
+        let dashPeriod = 'month';
+        function dashRows(type, all) {
+            const map = {};
+            aggregateIncome(type, 'dash').forEach(a => { map[a.key] = { key: a.key, income: a.income, expense: a.expense, car: 0 }; });
+            (window.carExpensesData || []).forEach(e => {
+                if (!inRange(e.ቀን, 'dash')) return;
+                const k = periodKey(e.ቀን, type);
+                if (!k) return;
+                (map[k] || (map[k] = { key: k, income: 0, expense: 0, car: 0 })).car += Number(e.መጠን) || 0;
+            });
+            const rows = Object.values(map).sort((a, b) => (a.key < b.key ? 1 : -1));
+            return (all || repRange.dash) ? rows : rows.slice(0, PERIOD_LIMIT[type]);
+        }
+
+        // ---- Car expense balance
+        function carBalance() {
+            let zPaid = 0, aPaid = 0, zAll = 0, aAll = 0;
+            (window.carExpensesData || []).forEach(e => {
+                const amt = Number(e.መጠን) || 0;
+                if (e.አዋጪ === 'zelalem') zAll += amt; else if (e.አዋጪ === 'abebaw') aAll += amt;
+                if (e.ተመላሽተቀብሏል === true) return;
+                if (e.አዋጪ === 'zelalem') zPaid += amt; else if (e.አዋጪ === 'abebaw') aPaid += amt;
+            });
+            const zOwedByA = zPaid / 2;   // አበባው ለዘላለም የሚከፍለው
+            const aOwedByZ = aPaid / 2;   // ዘላለም ለአበባው የሚከፍለው
+            return { zOwedByA, aOwedByZ, net: zOwedByA - aOwedByZ, zAll, aAll };
+        }
+
+        function expenseStatusFor(e, viewer) {
+            const share = (Number(e.መጠን) || 0) / 2;
+            const payer = e.አዋጪ;
+            const settled = e.ተመላሽተቀብሏል === true;
+            if (settled) return `<span class="text-emerald-600 font-semibold">ተመልሷል ✓</span>`;
+            if (viewer === 'all') return `<span class="text-amber-700 font-semibold">${MEMBER_NAMES[otherOf(payer)]} ለ${MEMBER_NAMES[payer]} ${money(share)} ብር</span>`;
+            if (payer === viewer) return `<span class="text-emerald-700 font-semibold">ከ${MEMBER_NAMES[otherOf(viewer)]} ተመላሽ፦ ${money(share)} ብር</span>`;
+            return `<span class="text-rose-700 font-semibold">እዳ ለ${MEMBER_NAMES[payer]}፦ ${money(share)} ብር</span>`;
+        }
+
+        function renderCarDash() {
+            const body = document.getElementById('carDashBody');
+            if (!body) return;
+            const list = window.carExpensesData || [];
+            const b = carBalance();
+            document.getElementById('carTotalAll').textContent = money(b.zAll + b.aAll) + ' ብር';
+            document.getElementById('carPaidZ').textContent = money(b.zAll) + ' ብር';
+            document.getElementById('carPaidA').textContent = money(b.aAll) + ' ብር';
+
+            const sum = document.getElementById('carDashSummary');
+            if (b.net > 0.004) sum.innerHTML = `<i class="fa-solid fa-arrow-down text-emerald-600"></i> አበባው የቆየ ለዘላለም እሸቱ <b>${money(b.net)} ብር</b> ተመላሽ ይከፍላል።`;
+            else if (b.net < -0.004) sum.innerHTML = `<i class="fa-solid fa-arrow-down text-emerald-600"></i> ዘላለም እሸቱ ለአበባው የቆየ <b>${money(-b.net)} ብር</b> ተመላሽ ይከፍላል።`;
+            else sum.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600"></i> በአባላት መካከል ያልተመለሰ ተመላሽ ወይም እዳ የለም።`;
+
+            if (!list.length) { body.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-gray-400">ምንም የተመዘገበ የመኪና ወጪ የለም።</td></tr>`; return; }
+            body.innerHTML = list.map(e => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(e.ቀን)}</td>
+                    <td class="px-3 py-2 text-gray-800">${esc(e.ምክንያት)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-rose-600">${money(e.መጠን)}</td>
+                    <td class="px-3 py-2">${esc(MEMBER_NAMES[e.አዋጪ] || '-')}</td>
+                    <td class="px-3 py-2">${expenseStatusFor(e, 'all')}</td>
+                    <td class="px-3 py-2 text-center no-print"><button onclick="deleteCarExpense('${esc(e.id)}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i></button></td>
+                </tr>`).join('');
+        }
+
+        function renderMemberCar(k) {
+            const sumEl = document.getElementById(k + 'CarSummary');
+            if (!sumEl) return;
+            const b = carBalance();
+            const net = k === 'zelalem' ? b.net : -b.net;
+            const receivable = k === 'zelalem' ? b.zOwedByA : b.aOwedByZ;
+            const payable = k === 'zelalem' ? b.aOwedByZ : b.zOwedByA;
+            const o = MEMBER_NAMES[otherOf(k)];
+            let main;
+            if (net > 0.004) main = `<div class="text-emerald-700"><i class="fa-solid fa-hand-holding-dollar"></i> ከ${o} ተመላሽ ብር አለዎት፦ <b>${money(net)} ብር</b></div>`;
+            else if (net < -0.004) main = `<div class="text-rose-700"><i class="fa-solid fa-triangle-exclamation"></i> ለ${o} እዳ አለብዎት፦ <b>${money(-net)} ብር</b></div>`;
+            else main = `<div class="text-gray-600"><i class="fa-solid fa-circle-check text-emerald-600"></i> ያልተመለሰ ተመላሽ ወይም እዳ የለም።</div>`;
+            sumEl.innerHTML = main + `<div class="text-[11px] font-normal text-gray-500">ከ${o} የሚጠበቅ፦ ${money(receivable)} ብር | ለ${o} የሚከፈል፦ ${money(payable)} ብር (ያልተመለሰ)</div>`;
+
+            const body = document.getElementById(k + 'CarBody');
+            const list = window.carExpensesData || [];
+            if (!list.length) { body.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-400">ምንም የተመዘገበ የመኪና ወጪ የለም።</td></tr>`; return; }
+            body.innerHTML = list.map(e => {
+                const mine = e.አዋጪ === k;
+                const settled = e.ተመላሽተቀብሏል === true;
+                const action = (mine && !settled)
+                    ? `<button onclick="settleExpense('${esc(e.id)}','${k}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold">ተመላሽ ተቀብያለሁ</button>`
+                    : '';
+                return `
+                <tr>
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(e.ቀን)}</td>
+                    <td class="px-3 py-2 text-gray-800">${esc(e.ምክንያት)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-rose-600">${money(e.መጠን)}</td>
+                    <td class="px-3 py-2">${esc(MEMBER_NAMES[e.አዋጪ] || '-')}</td>
+                    <td class="px-3 py-2">${expenseStatusFor(e, k)}</td>
+                    <td class="px-3 py-2 text-center no-print">${action}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderMonthly() {
+            const body = document.getElementById('monthlyBody');
+            if (!body) return;
+            ['week', 'month', 'year'].forEach(t => {
+                const btn = document.getElementById('dashRepBtn-' + t);
+                if (btn) btn.className = 'px-3 py-1.5 rounded-lg ' + (t === dashPeriod ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-gray-700');
+            });
+            document.getElementById('dashRepTitle').textContent = PERIOD_NAMES[dashPeriod] + ' የገቢና የወጪ ሪፖርት (አጠቃላይ)';
+            rangeNote('dash');
+            const rows = dashRows(dashPeriod);
+            if (!rows.length) { body.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-gray-400">ምንም የተመዘገበ መረጃ የለም።</td></tr>`; return; }
+            body.innerHTML = rows.map(r => {
+                const net = r.income - r.expense - r.car;
+                return `<tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(periodLabel(r.key, dashPeriod))}</td>
+                    <td class="px-3 py-2 text-right font-bold text-emerald-600">${money(r.income)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-rose-600">${money(r.expense)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-orange-600">${money(r.car)}</td>
+                    <td class="px-3 py-2 text-right font-extrabold ${net < 0 ? 'text-rose-700' : 'text-indigo-600'}">${money(net)}</td>
+                </tr>`;
+            }).join('');
+        }
+        window.setDashPeriod = function(type) { dashPeriod = type; renderMonthly(); };
+
+        function renderMemberReport(k) {
+            const body = document.getElementById(k + 'RepBody');
+            if (!body) return;
+            const type = reportPeriod[k];
+            ['week', 'month', 'year'].forEach(t => {
+                const btn = document.getElementById(`${k}RepBtn-${t}`);
+                if (!btn) return;
+                btn.className = 'px-3 py-1.5 rounded-lg ' + (t === type ? MEMBER_COLORS[k] + ' text-white' : 'bg-slate-100 text-gray-700');
+            });
+            document.getElementById(k + 'RepTitle').textContent = PERIOD_NAMES[type] + ' የገቢ ሪፖርት';
+            rangeNote(k);
+            const rows = aggregateIncome(type, k);
+            if (!repRange[k]) rows.splice(PERIOD_LIMIT[type]);
+            if (!rows.length) { body.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-400">ምንም የተመዘገበ መረጃ የለም።</td></tr>`; return; }
+            let tI = 0, tE = 0;
+            body.innerHTML = rows.map(r => {
+                const net = r.income - r.expense; tI += r.income; tE += r.expense;
+                return `<tr>
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(periodLabel(r.key, type))}</td>
+                    <td class="px-3 py-2 text-right text-emerald-600 font-bold">${money(r.income)}</td>
+                    <td class="px-3 py-2 text-right text-rose-600 font-bold">${money(r.expense)}</td>
+                    <td class="px-3 py-2 text-right text-indigo-600 font-bold">${money(net)}</td>
+                    <td class="px-3 py-2 text-right font-extrabold">${money(net / 2)}</td>
+                </tr>`;
+            }).join('') + `<tr class="bg-slate-50 font-extrabold">
+                    <td class="px-3 py-2">ጠቅላላ</td>
+                    <td class="px-3 py-2 text-right">${money(tI)}</td>
+                    <td class="px-3 py-2 text-right">${money(tE)}</td>
+                    <td class="px-3 py-2 text-right">${money(tI - tE)}</td>
+                    <td class="px-3 py-2 text-right">${money((tI - tE) / 2)}</td>
+                </tr>`;
+        }
+
+        function maskEmail(e) {
+            const [u, d] = String(e).split('@');
+            return (u || '').slice(0, 2) + '***@' + (d || '');
+        }
+        function renderFollowers() {
+            const box = document.getElementById('followerList');
+            if (!box) return;
+            const list = window.followersData || [];
+            document.getElementById('followerCount').textContent = list.length ? list.length + ' ተከታዮች' : '';
+            box.innerHTML = list.map(f => `
+                <span class="inline-flex items-center gap-2 bg-sky-50 border border-sky-200 text-sky-800 px-3 py-1 rounded-full">
+                    <i class="fa-solid fa-envelope"></i>${esc(f.name ? f.name + ' · ' : '')}${esc(unlocked.admin ? f.email : maskEmail(f.email))}
+                    ${unlocked.admin ? `<button onclick="removeFollowerById('${esc(f.id)}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                </span>`).join('');
+        }
+
+        function renderRecordsCount() {
+            const el = document.getElementById('recordsCount');
+            if (el) el.textContent = (window.allRecordsData || []).length + ' መዝገቦች';
+        }
+
+        // ---- የክፍያ ማረጋገጫዎች
+        let payDetailSel = null;
+        function payStats(k) {
+            const f = k === 'zelalem' ? 'ዘላለምተቀብያለሁ' : 'አበባውተቀብያለሁ';
+            const acc = [], not = [];
+            (window.allRecordsData || []).forEach(r => {
+                const share = ((Number(r.የተገኘገቢ) || 0) - (Number(r.የወጣወጪ) || 0)) / 2;
+                (r[f] === true ? acc : not).push({ ቀን: r.ቀን, ምክንያት: r.ምክንያት, share });
+            });
+            const sum = a => a.reduce((t, x) => t + x.share, 0);
+            return { acc, not, accSum: sum(acc), notSum: sum(not) };
+        }
+        window.showPayDetail = function(k, type) {
+            payDetailSel = (payDetailSel && payDetailSel.k === k && payDetailSel.type === type) ? null : { k, type };
+            renderPayConfirm();
+        };
+        function renderPayConfirm() {
+            ['zelalem', 'abebaw'].forEach(k => {
+                const st = payStats(k);
+                const set = (id, v) => { const el = document.getElementById(k + id); if (el) el.textContent = v; };
+                set('AccSum', money(st.accSum) + ' ብር'); set('AccCnt', st.acc.length);
+                set('NotSum', money(st.notSum) + ' ብር'); set('NotCnt', st.not.length);
+            });
+            const grid = document.getElementById('payConfirmGrid');
+            if (!grid) return;
+            const colors = { zelalem: 'blue', abebaw: 'purple' };
+            grid.innerHTML = ['zelalem', 'abebaw'].map(k => {
+                const st = payStats(k);
+                const btn = (type, label, cnt, sum, cls) => `
+                    <button type="button" onclick="showPayDetail('${k}','${type}')" class="flex-1 rounded-xl border p-3 text-right transition-all ${cls} ${payDetailSel && payDetailSel.k === k && payDetailSel.type === type ? 'ring-2 ring-offset-1 ring-indigo-400' : ''}">
+                        <div class="text-[11px] font-semibold">${label}</div>
+                        <div class="text-2xl font-extrabold">${cnt}</div>
+                        <div class="text-[11px]">${money(sum)} ብር</div>
+                    </button>`;
+                return `<div class="rounded-xl border border-${colors[k]}-200 p-4 space-y-3">
+                    <div class="font-bold text-sm text-${colors[k]}-700"><i class="fa-solid fa-user"></i> ${MEMBER_NAMES[k]}</div>
+                    <div class="flex gap-3">
+                        ${btn('acc', 'ተቀብያለሁ', st.acc.length, st.accSum, 'bg-emerald-50 border-emerald-200 text-emerald-700')}
+                        ${btn('not', 'አልተቀበልኩም', st.not.length, st.notSum, 'bg-rose-50 border-rose-200 text-rose-700')}
+                    </div></div>`;
+            }).join('');
+            const det = document.getElementById('payConfirmDetail');
+            if (!payDetailSel) { det.classList.add('hidden'); det.innerHTML = ''; return; }
+            const st = payStats(payDetailSel.k);
+            const list = payDetailSel.type === 'acc' ? st.acc : st.not;
+            const title = `${MEMBER_NAMES[payDetailSel.k]} — ${payDetailSel.type === 'acc' ? 'ተቀብያለሁ' : 'አልተቀበልኩም'} (${list.length})`;
+            det.classList.remove('hidden');
+            det.innerHTML = `<div class="font-bold text-sm mb-2">${title}</div>` + (list.length ? `
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead><tr class="bg-slate-50 text-gray-600 font-semibold border-b"><th class="px-3 py-2">ቀን</th><th class="px-3 py-2">ዝርዝር</th><th class="px-3 py-2 text-right">ድርሻ (ብር)</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100">${list.map(x => `<tr><td class="px-3 py-2 font-semibold text-gray-700">${esc(x.ቀን)}</td><td class="px-3 py-2">${esc(x.ምክንያት || '-')}</td><td class="px-3 py-2 text-right font-bold">${money(x.share)}</td></tr>`).join('')}</tbody>
+                </table>` : '<div class="text-gray-400 text-xs py-3 text-center">ምንም የለም።</div>');
+        }
+
+        function refreshDerived() {
+            renderPayConfirm();
+            renderRecordsCount();
+            renderCarDash();
+            renderMemberCar('zelalem'); renderMemberCar('abebaw');
+            renderMonthly();
+            renderMemberReport('zelalem'); renderMemberReport('abebaw');
+            renderFollowers();
+        }
+
+        window.setReportPeriod = function(k, type) { reportPeriod[k] = type; renderMemberReport(k); };
+
+        // ---- Report e-mails
+        window.sendMemberReport = async function(k) {
+            if (!unlocked[k]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const type = reportPeriod[k];
+            const rows = aggregateIncome(type, k);
+            if (!repRange[k]) rows.splice(PERIOD_LIMIT[type]);
+            if (!rows.length) { showAlert("የሚላክ መረጃ የለም!", "error"); return; }
+            let tShare = 0;
+            const lines = rows.map(r => {
+                const net = r.income - r.expense; tShare += net / 2;
+                return `${periodLabel(r.key, type)}፦ ገቢ ${money(r.income)} | ወጪ ${money(r.expense)} | የተጣራ ${money(net)} | የእርስዎ ድርሻ ${money(net / 2)} ብር`;
+            });
+            const message = `ሰላም ${MEMBER_NAMES[k]}፣\n${PERIOD_NAMES[type]} የገቢ ሪፖርትዎ፦\n\n${lines.join('\n')}\n\nበዚህ ሪፖርት ጠቅላላ ድርሻዎ፦ ${money(tShare)} ብር`;
+            const ok = await sendSequential([{ email: MEMBER_EMAILS[k], name: MEMBER_NAMES[k], subject: `${PERIOD_NAMES[type]} የገቢ ሪፖርት`, message }]);
+            showAlert(ok ? "ሪፖርቱ ወደ ኢሜልዎ ተልኳል!" : "ኢሜል መላክ አልተቻለም።", ok ? 'success' : 'error');
+        };
+
+        window.sendMonthlyReport = async function() {
+            if (!unlocked.admin) { showAlert("ሪፖርት ለመላክ መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const rows = dashRows(dashPeriod);
+            if (!rows.length) { showAlert("የሚላክ መረጃ የለም!", "error"); return; }
+            const lines = rows.map(r => `${periodLabel(r.key, dashPeriod)}፦ ገቢ ${money(r.income)} | ወጪ ${money(r.expense)} | የመኪና ወጪ ${money(r.car)} | የተጣራ ${money(r.income - r.expense - r.car)} ብር`);
+            const body = `${PERIOD_NAMES[dashPeriod]} የጋራ መኪና ሪፖርት (የተጣራ = ገቢ − ወጪ − የመኪና ወጪ)፦\n\n${lines.join('\n')}`;
+            const items = ['zelalem', 'abebaw'].map(k => ({
+                email: MEMBER_EMAILS[k], name: MEMBER_NAMES[k],
+                subject: `${PERIOD_NAMES[dashPeriod]} የገቢና የወጪ ሪፖርት`, message: `ሰላም ${MEMBER_NAMES[k]}፣\n${body}`
+            }));
+            const ok = await sendSequential(items);
+            showAlert(`ሪፖርቱ ለ${ok} ከ${items.length} አባላት ተልኳል።`, ok ? 'success' : 'error');
+        };
+
+        // ---- Report export: Print / Word / Excel (ለሁሉም ሪፖርቶች)
+        function buildReport(scope) {
+            if (scope === 'dash') {
+                const type = dashPeriod, rows = dashRows(type, true);
+                let tI = 0, tE = 0, tC = 0;
+                const data = rows.map(r => { tI += r.income; tE += r.expense; tC += r.car; return [periodLabel(r.key, type), r.income, r.expense, r.car, r.income - r.expense - r.car]; });
+                data.push(['ጠቅላላ', tI, tE, tC, tI - tE - tC]);
+                return { type, title: `${PERIOD_NAMES[type]} የገቢና የወጪ ሪፖርት (አጠቃላይ)`,
+                    headers: ['ጊዜ', 'ገቢ', 'ወጪ', 'የመኪና ወጪ', 'የተጣራ'], rows: data, file: `አጠቃላይ_${PERIOD_NAMES[type]}_ሪፖርት` };
+            }
+            const type = reportPeriod[scope], rows = aggregateIncome(type, scope);
+            let tI = 0, tE = 0;
+            const data = rows.map(r => { tI += r.income; tE += r.expense; return [periodLabel(r.key, type), r.income, r.expense, r.income - r.expense, (r.income - r.expense) / 2]; });
+            data.push(['ጠቅላላ', tI, tE, tI - tE, (tI - tE) / 2]);
+            return { type, title: `${MEMBER_NAMES[scope]} — ${PERIOD_NAMES[type]} የገቢ ሪፖርት`,
+                headers: ['ጊዜ', 'ገቢ', 'ወጪ', 'የተጣራ', 'ድርሻ (50%)'], rows: data, file: `${MEMBER_NAMES[scope]}_${PERIOD_NAMES[type]}_ሪፖርት` };
+        }
+
+        function reportHtml(rep, forWord) {
+            const head = rep.headers.map(h => `<th>${esc(h)}</th>`).join('');
+            const body = rep.rows.map((r, i) => {
+                const last = i === rep.rows.length - 1;
+                return '<tr' + (last ? ' style="font-weight:bold;background:#f1f5f9"' : '') + '>' +
+                    r.map((c, j) => `<td style="${j ? 'text-align:right' : ''}">${typeof c === 'number' ? money(c) : esc(c)}</td>`).join('') + '</tr>';
+            }).join('');
+            return `<html${forWord ? " xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'" : ''}>
+<head><meta charset="utf-8"><title>${esc(rep.title)}</title>
+<style>
+body{font-family:'Noto Sans Ethiopic',Arial,sans-serif;padding:20px;color:#1e293b}
+h2{margin:0 0 4px} p{margin:0 0 14px;color:#64748b;font-size:13px}
+table{border-collapse:collapse;width:100%} th,td{border:1px solid #cbd5e1;padding:8px;font-size:13px}
+th{background:#4f46e5;color:#fff;text-align:left}
+</style></head><body>
+<h2>${esc(rep.title)}</h2>
+<p>የጋራ መኪና — ባለድርሻዎች፡ ዘላለም እሸቱ እና አበባው የቆየ (50/50) | የተዘጋጀበት ቀን፡ ${fmtDate(new Date())}</p>
+<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+</body></html>`;
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+
+        window.exportReport = function(scope, format) {
+            if (scope !== 'dash' && !unlocked[scope]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const rep = buildReport(scope);
+            if (rep.rows.length <= 1) { showAlert("ምንም የሚወርድ መረጃ የለም!", "error"); return; }
+            const stamp = fmtDate(new Date());
+            if (format === 'print') {
+                const frame = document.createElement('iframe');
+                frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+                document.body.appendChild(frame);
+                frame.contentDocument.open();
+                frame.contentDocument.write(reportHtml(rep, false));
+                frame.contentDocument.close();
+                setTimeout(() => {
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                    setTimeout(() => frame.remove(), 3000);
+                }, 400);
+            } else if (format === 'word') {
+                downloadBlob(new Blob(['﻿' + reportHtml(rep, true)], { type: 'application/msword' }), `${rep.file}_${stamp}.doc`);
+            } else if (format === 'excel') {
+                const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+                const csv = '﻿' + [rep.headers.map(q).join(',')]
+                    .concat(rep.rows.map(r => r.map(c => typeof c === 'number' ? c.toFixed(2) : q(c)).join(','))).join('\n');
+                downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${rep.file}_${stamp}.csv`);
+            }
+        };
+
+        // ---- Car expense actions
+        document.getElementById('ceDate').value = todayStr();
+        document.getElementById('carExpenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!unlocked.admin) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const date = document.getElementById('ceDate').value;
+            const reason = document.getElementById('ceReason').value.trim();
+            const amount = parseFloat(document.getElementById('ceAmount').value) || 0;
+            const payer = document.getElementById('cePayer').value;
+            if (!date || !reason || amount <= 0) { showAlert("ቀን፣ ምክንያት እና ትክክለኛ መጠን ያስገቡ!", "error"); return; }
+            try {
+                await push(carExpenseRef, {
+                    ቀን: date, ምክንያት: reason, መጠን: amount, አዋጪ: payer,
+                    ተመላሽተቀብሏል: false, የተመዘገበበትሰዓት: Date.now()
+                });
+                showAlert("የመኪና ወጪ ተመዝግቧል!");
+                document.getElementById('ceReason').value = '';
+                document.getElementById('ceAmount').value = '';
+                document.getElementById('ceDate').value = todayStr();
+                if (document.getElementById('enableEmailNotify').checked) notifyCarExpense({ date, reason, amount, payer });
+            } catch (error) {
+                console.error(error);
+                showAlert("ወጪውን መመዝገብ አልተቻለም።", "error");
+            }
+        });
+
+        async function notifyCarExpense(x) {
+            const other = otherOf(x.payer), share = x.amount / 2;
+            const head = `ለመኪናው አዲስ ወጪ ተመዝግቧል፦\nቀን፡ ${x.date}\nምክንያት፡ ${x.reason}\nጠቅላላ ወጪ፡ ${money(x.amount)} ብር\nያዋጣው፡ ${MEMBER_NAMES[x.payer]}`;
+            const items = ['zelalem', 'abebaw'].map(k => ({
+                email: MEMBER_EMAILS[k], name: MEMBER_NAMES[k], subject: `አዲስ የመኪና ወጪ፡ ${money(x.amount)} ብር`,
+                message: `ሰላም ${MEMBER_NAMES[k]}፣\n${head}\n\n` + (k === x.payer
+                    ? `ከ${MEMBER_NAMES[other]} ተመላሽ ብር አለዎት፦ ${money(share)} ብር`
+                    : `ለ${MEMBER_NAMES[x.payer]} እዳ አለብዎት (የእርስዎ 50% ድርሻ)፦ ${money(share)} ብር`)
+            }));
+                        await sendSequential(items);
+        }
+
+        window.deleteCarExpense = async function(id) {
+            if (!unlocked.admin) { showAlert("መሰረዝ የሚችለው የይለፍ ቃል ያስገባ ብቻ ነው!", "error"); return; }
+            if (!confirm("ይህንን የመኪና ወጪ መዝገብ በእርግጥ መሰረዝ ይፈልጋሉ?")) return;
+            try { await remove(ref(db, `የመኪና ወጪ/${id}`)); showAlert("ተሰርዟል!"); }
+            catch (err) { console.error(err); showAlert("መሰረዝ አልተቻለም።", "error"); }
+        };
+
+        // ተመላሽ ተቀብያለሁ — አንድ ጊዜ ብቻ (መልሶ መቀየር አይቻልም)
+        window.settleExpense = async function(id, who) {
+            if (!unlocked[who]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const e = (window.carExpensesData || []).find(x => x.id === id);
+            if (!e || e.አዋጪ !== who || e.ተመላሽተቀብሏል === true) return;
+            if (!confirm("ተመላሹን ተቀብያለሁ ካሉ በኋላ መልሰው ማስተካከል አይችሉም። እርግጠኛ ነዎት?")) return;
+            try {
+                await update(ref(db, `የመኪና ወጪ/${id}`), { ተመላሽተቀብሏል: true, ተመላሽተቀበለበትሰዓት: Date.now() });
+                showAlert("ተመላሽ መቀበልዎ ተረጋገጠ!");
+            } catch (err) { console.error(err); showAlert("ሁኔታውን መቀየር አልተቻለም።", "error"); }
+        };
+
+        // ---- Followers
+        document.getElementById('followerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('followerEmail').value.trim().toLowerCase();
+            const name = document.getElementById('followerName').value.trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAlert("ትክክለኛ ኢሜል ያስገቡ!", "error"); return; }
+            if ((window.followersData || []).some(f => (f.email || '').toLowerCase() === email)) { showAlert("ይህ ኢሜል ቀድሞ ተመዝግቧል።", "error"); return; }
+            try {
+                await push(followersRef, { email, name, የተመዘገበበትሰዓት: Date.now() });
+                showAlert("ተመዝግበዋል! ከአሁን ጀምሮ የቀኑ ጠቅላላ ገቢ በኢሜል ይደርስዎታል።");
+                document.getElementById('followerEmail').value = '';
+                document.getElementById('followerName').value = '';
+                sendSequential([{ email, name: name || 'ተከታታይ', subject: 'የጋራ መኪና መረጃ ተከታታይ ሆነዋል',
+                    message: `ሰላም ${name || ''}፣\nየጋራ መኪና ገቢና ወጪ መረጃን ለመከታተል ተመዝግበዋል። ከአሁን ጀምሮ በየቀኑ የተገኘው የቀኑ ጠቅላላ ገቢ ብቻ በዚህ ኢሜል ይደርስዎታል።` }]);
+            } catch (err) { console.error(err); showAlert("መመዝገብ አልተቻለም።", "error"); }
+        });
+
+        document.getElementById('unfollowForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('unfollowEmail').value.trim().toLowerCase();
+            const hit = (window.followersData || []).filter(f => (f.email || '').toLowerCase() === email);
+            if (!hit.length) { showAlert("ይህ ኢሜል በተከታዮች ውስጥ የለም።", "error"); return; }
+            try {
+                for (const f of hit) await remove(ref(db, `ተከታዮች/${f.id}`));
+                document.getElementById('unfollowEmail').value = '';
+                showAlert("ከመከታተል ተወግደዋል።");
+            } catch (err) { console.error(err); showAlert("ማስወገድ አልተቻለም።", "error"); }
+        });
+
+        window.removeFollowerById = async function(id) {
+            if (!unlocked.admin) return;
+            if (!confirm("ይህንን ተከታታይ ማስወገድ ይፈልጋሉ?")) return;
+            try { await remove(ref(db, `ተከታዮች/${id}`)); showAlert("ተወግዷል።"); }
+            catch (err) { console.error(err); showAlert("ማስወገድ አልተቻለም።", "error"); }
+        };
+
+        // ---- Realtime listeners for new data
+        onValue(carExpenseRef, (snap) => {
+            const d = snap.val() || {};
+            window.carExpensesData = Object.keys(d).map(id => ({ id, ...d[id] }))
+                .sort(byDateDesc);
+            refreshDerived();
+        });
+        onValue(followersRef, (snap) => {
+            const d = snap.val() || {};
+            window.followersData = Object.keys(d).map(id => ({ id, ...d[id] }))
+                .sort((a, b) => (a.የተመዘገበበትሰዓት || 0) - (b.የተመዘገበበትሰዓት || 0));
+            renderFollowers();
+        });
+
+        // ==========================================
+        // የኤሌክትሪክ ንባብ (እርከን ታሪፍ)
+        // ==========================================
+        const elecRef = ref(db, 'የኤሌክትሪክ ንባብ');
+        window.elecData = [];
+        // ታሪፍ በሬንጅ ነው፦ ጠቅላላ ፍጆታው በወደቀበት ሬንጅ ዋጋ ይባዛል
+        const ELEC_TIERS = [
+            { from: 0,   upTo: 50,       rate: 1.08 },
+            { from: 51,  upTo: 100,      rate: 2.57 },
+            { from: 101, upTo: 200,      rate: 4.24 },
+            { from: 201, upTo: 300,      rate: 6.60 },
+            { from: 301, upTo: 400,      rate: 6.78 },
+            { from: 401, upTo: 500,      rate: 6.83 },
+            { from: 501, upTo: Infinity, rate: 6.84 }
+        ];
+        const fmtKwh = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+        function calcElec(kwh) {
+            const t = ELEC_TIERS.find(x => kwh <= x.upTo) || ELEC_TIERS[ELEC_TIERS.length - 1];
+            return { total: Math.round(kwh * t.rate * 100) / 100, tier: t };
+        }
+
+        function updateElecPreview() {
+            const box = document.getElementById('elecPreview');
+            const prev = parseFloat(document.getElementById('elecPrev').value);
+            const cur = parseFloat(document.getElementById('elecCur').value);
+            if (isNaN(prev) || isNaN(cur)) { box.classList.add('hidden'); return; }
+            if (cur < prev) {
+                box.innerHTML = `<span class="text-rose-700 font-semibold">የአሁን ንባብ ከቀዳሚው ንባብ ማነስ የለበትም!</span>`;
+                box.classList.remove('hidden');
+                return;
+            }
+            const kwh = Math.round((cur - prev) * 100) / 100;
+            const c = calcElec(kwh);
+            const rng = c.tier.upTo === Infinity ? `ከ${c.tier.from} በላይ` : `${c.tier.from}–${c.tier.upTo}`;
+            box.innerHTML = `<div class="font-bold text-gray-800">ፍጆታ፦ ${fmtKwh(kwh)} ኪ.ዋ.ሰ &nbsp;|&nbsp; የክፍያ ዋጋ፦ <span class="text-rose-600">${money(c.total)} ብር</span></div>` +
+                `<div class="text-[11px] text-gray-600">ሬንጅ ${rng} ኪ.ዋ.ሰ፦ ${fmtKwh(kwh)} × ${c.tier.rate.toFixed(2)} = ${money(c.total)} ብር</div>`;
+            box.classList.remove('hidden');
+        }
+
+        function renderElec() {
+            const body = document.getElementById('elecBody');
+            if (!body) return;
+            const list = window.elecData || [];
+            const last = list[0];
+            const prevEl = document.getElementById('elecPrev');
+            const hint = document.getElementById('elecPrevHint');
+            if (last) {
+                prevEl.value = last.አሁንንባብ;
+                prevEl.readOnly = true;
+                prevEl.classList.add('bg-gray-100');
+                hint.textContent = '(ከመጨረሻው ንባብ)';
+            } else {
+                prevEl.readOnly = false;
+                prevEl.classList.remove('bg-gray-100');
+                hint.textContent = '(የመጀመሪያ ንባብ ነው — የቀድሞውን ያስገቡ)';
+            }
+            document.getElementById('elecCount').textContent = list.length ? list.length + ' መዝገቦች' : '';
+            document.getElementById('elecLast').textContent = last ? fmtKwh(last.አሁንንባብ) : '-';
+            document.getElementById('elecLastKwh').textContent = last ? fmtKwh(last.ፍጆታ) : '-';
+            document.getElementById('elecLastCost').textContent = last ? money(last.ክፍያ) + ' ብር' : '-';
+            if (!list.length) { body.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-gray-400">ምንም የተመዘገበ ንባብ የለም።</td></tr>`; updateElecPreview(); return; }
+            body.innerHTML = list.map(e => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(e.ቀን)}</td>
+                    <td class="px-3 py-2 text-right">${fmtKwh(e.ቀዳሚንባብ)}</td>
+                    <td class="px-3 py-2 text-right">${fmtKwh(e.አሁንንባብ)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-indigo-600">${fmtKwh(e.ፍጆታ)}</td>
+                    <td class="px-3 py-2 text-right font-extrabold text-rose-600">${money(e.ክፍያ)}</td>
+                    <td class="px-3 py-2 text-center"><button onclick="deleteElec('${esc(e.id)}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i></button></td>
+                </tr>`).join('');
+            updateElecPreview();
+        }
+
+        document.getElementById('elecDate').value = todayStr();
+        document.getElementById('elecPrev').addEventListener('input', updateElecPreview);
+        document.getElementById('elecCur').addEventListener('input', updateElecPreview);
+
+        document.getElementById('elecForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!unlocked.admin) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const date = document.getElementById('elecDate').value;
+            const prev = parseFloat(document.getElementById('elecPrev').value);
+            const cur = parseFloat(document.getElementById('elecCur').value);
+            if (!date || isNaN(prev) || isNaN(cur)) { showAlert("ቀን እና ንባቦችን በትክክል ያስገቡ!", "error"); return; }
+            if (cur < prev) { showAlert("የአሁን ንባብ ከቀዳሚው ንባብ ማነስ የለበትም!", "error"); return; }
+            const kwh = Math.round((cur - prev) * 100) / 100;
+            const cost = calcElec(kwh).total;
+            try {
+                await push(elecRef, { ቀን: date, ቀዳሚንባብ: prev, አሁንንባብ: cur, ፍጆታ: kwh, ክፍያ: cost, የተመዘገበበትሰዓት: Date.now() });
+                showAlert(`ንባቡ ተመዝግቧል! ፍጆታ ${fmtKwh(kwh)} ኪ.ዋ.ሰ፣ ክፍያ ${money(cost)} ብር`);
+                document.getElementById('elecCur').value = '';
+                document.getElementById('elecDate').value = todayStr();
+                updateElecPreview();
+            } catch (err) { console.error(err); showAlert("ንባቡን መመዝገብ አልተቻለም።", "error"); }
+        });
+
+        window.deleteElec = async function(id) {
+            if (!unlocked.admin) { showAlert("መሰረዝ የሚችለው የይለፍ ቃል ያስገባ ብቻ ነው!", "error"); return; }
+            if (!confirm("ይህንን የኤሌክትሪክ ንባብ መዝገብ በእርግጥ መሰረዝ ይፈልጋሉ?")) return;
+            try { await remove(ref(db, `የኤሌክትሪክ ንባብ/${id}`)); showAlert("ተሰርዟል!"); }
+            catch (err) { console.error(err); showAlert("መሰረዝ አልተቻለም።", "error"); }
+        };
+
+        onValue(elecRef, (snap) => {
+            const d = snap.val() || {};
+            window.elecData = Object.keys(d).map(id => ({ id, ...d[id] }))
+                .sort(byDateDesc);
+            renderElec();
+        });
+
+        ['dateInput', 'ceDate', 'elecDate', 'editDate'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', () => {
+                // ቁጥር ብቻ ተቀብሎ ሰረዝ በራሱ ይጨምራል
+                let d = el.value.replace(/\D/g, '').slice(0, 8);
+                if (d.length > 6) d = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
+                else if (d.length > 4) d = d.slice(0, 4) + '-' + d.slice(4);
+                el.value = d;
+                el.setCustomValidity(el.value.length === 10 && !validDateStr(el.value) ? 'ትክክለኛ ቀን ያስገቡ (ለምሳሌ 2026-11-04)' : '');
+            });
+        });
+        ['dash', 'zelalem', 'abebaw', 'records', 'car', 'elec'].forEach(buildRangeBox);
+        // ሠንጠረዡ እንደገና ሲሳል ማጣሪያው በራስ-ሰር ይተገበራል
+        Object.keys(ROW_SCOPES).forEach(scope => {
+            const body = document.getElementById(ROW_SCOPES[scope]);
+            if (body) new MutationObserver(() => { if (repRange[scope]) applyRowFilter(scope); }).observe(body, { childList: true });
+        });
+
+        // ==========================================
+        // የገንዘብ ልውውጥ ሊንክ ማስቀመጫ (የባንክ ስሊፕ ሊንክ)
+        // ==========================================
+        const xferRef = ref(db, 'የገንዘብ ልውውጥ');
+        window.xferData = [];
+        const XFER_DIR = {
+            a2z: { label: 'አበባው ወደ ዘላለም የላከው', from: 'አበባው የቆየ', to: 'ዘላለም እሸቱ' },
+            z2a: { label: 'ዘላለም ወደ አበባው የላከው', from: 'ዘላለም እሸቱ', to: 'አበባው የቆየ' }
+        };
+        const XFER_COLOR = { zelalem: 'blue', abebaw: 'purple' };
+        const safeUrl = u => {
+            let v = String(u || '').trim();
+            if (!v) return '';
+            if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v;
+            return /^https?:\/\//i.test(v) ? v : '';
+        };
+        const xferSum = list => list.reduce((t, x) => t + (Number(x.መጠን) || 0), 0);
+
+        function xferTable(k, dir) {
+            const list = (window.xferData || []).filter(x => x.አቅጣጫ === dir);
+            const c = XFER_COLOR[k];
+            const rows = list.length ? list.map((x, i) => {
+                const url = safeUrl(x.ሊንክ);
+                return `<tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2 text-center text-gray-400">${i + 1}</td>
+                    <td class="px-3 py-2 font-semibold text-gray-700">${esc(x.ቀን)}</td>
+                    <td class="px-3 py-2 max-w-[220px] truncate">${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="text-${c}-600 underline break-all">${esc(x.ሊንክ)}</a>` : esc(x.ሊንክ)}</td>
+                    <td class="px-3 py-2 text-right font-bold text-emerald-600">${money(x.መጠን)}</td>
+                    <td class="px-3 py-2 text-gray-800">${esc(x.ምክንያት)}</td>
+                    <td class="px-3 py-2 text-center no-print"><button onclick="deleteXfer('${esc(x.id)}','${k}')" class="text-rose-500 hover:text-rose-700" title="ሰርዝ"><i class="fa-solid fa-trash-can"></i></button></td>
+                </tr>`;
+            }).join('') : `<tr><td colspan="6" class="text-center py-4 text-gray-400">ምንም የተመዘገበ ሊንክ የለም።</td></tr>`;
+            return `<div class="space-y-2">
+                <div class="flex justify-between items-center text-sm font-bold text-gray-800">
+                    <span><i class="fa-solid fa-money-bill-transfer text-${c}-600"></i> ${XFER_DIR[dir].label}</span>
+                    <span class="text-xs text-emerald-700">ድምር፦ ${money(xferSum(list))} ብር</span>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-left border-collapse">
+                    <thead><tr class="bg-slate-50 text-gray-600 font-semibold text-xs border-b">
+                        <th class="px-3 py-2 text-center">ተራ ቁ.</th><th class="px-3 py-2">ቀን</th><th class="px-3 py-2">የሊንክ ማስቀመጫ</th>
+                        <th class="px-3 py-2 text-right">የተላለፈው መጠን (ብር)</th><th class="px-3 py-2">የተላለፈበት ምክንያት</th><th class="px-3 py-2 text-center no-print">ተግባር</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100 text-xs">${rows}</tbody>
+                </table></div>
+            </div>`;
+        }
+
+        function renderXfer() {
+            ['zelalem', 'abebaw'].forEach(k => {
+                const box = document.getElementById(k + 'XferBox');
+                if (!box) return;
+                const c = XFER_COLOR[k];
+                const cnt = document.getElementById(k + 'XferCount');
+                if (cnt) cnt.textContent = (window.xferData || []).length ? window.xferData.length + ' መዝገቦች' : '';
+                // በግቤት ላይ ያለውን ጽሑፍ ላለማጥፋት ፎርሙ አንድ ጊዜ ብቻ ይሳላል
+                if (!box.querySelector('form')) {
+                    box.innerHTML = `
+                        <form id="${k}XferForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end no-print" autocomplete="off">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">አቅጣጫ <span class="text-red-500">*</span></label>
+                                <select id="${k}XferDir" required class="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs outline-none focus:ring-2 focus:ring-${c}-500">
+                                    <option value="a2z">${XFER_DIR.a2z.label}</option>
+                                    <option value="z2a">${XFER_DIR.z2a.label}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">ቀን <span class="text-red-500">*</span></label>
+                                <input type="text" id="${k}XferDate" required inputmode="numeric" maxlength="10" pattern="\\d{4}-\\d{2}-\\d{2}" placeholder="2026-11-04" class="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-xs outline-none focus:ring-2 focus:ring-${c}-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">የባንክ ስሊፕ ሊንክ <span class="text-red-500">*</span></label>
+                                <input type="text" id="${k}XferLink" required placeholder="https://..." class="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-xs outline-none focus:ring-2 focus:ring-${c}-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">የተላለፈው መጠን (ብር) <span class="text-red-500">*</span></label>
+                                <input type="number" step="0.01" min="0.01" id="${k}XferAmt" required placeholder="0.00" class="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-xs outline-none focus:ring-2 focus:ring-${c}-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">የተላለፈበት ምክንያት <span class="text-red-500">*</span></label>
+                                <input type="text" id="${k}XferReason" required placeholder="ምሳሌ፡ የድርሻ ክፍያ" class="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-xs outline-none focus:ring-2 focus:ring-${c}-500">
+                            </div>
+                            <div class="sm:col-span-2 lg:col-span-5 flex justify-end">
+                                <button type="submit" class="bg-${c}-600 hover:bg-${c}-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md text-xs"><i class="fa-solid fa-plus"></i> ሊንክ መዝግብ</button>
+                            </div>
+                        </form>
+                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold no-print">
+                            <button onclick="exportXfer('${k}','print')" class="px-3 py-1.5 rounded-lg bg-slate-100 text-gray-700 hover:bg-slate-200"><i class="fa-solid fa-print text-indigo-600"></i> አትም</button>
+                            <button onclick="exportXfer('${k}','word')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"><i class="fa-solid fa-file-word"></i> ወደ ዎርድ አውርድ</button>
+                            <button onclick="exportXfer('${k}','excel')" class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"><i class="fa-solid fa-file-excel"></i> ወደ ኤክሴል አውርድ</button>
+                        </div>
+                        <div id="${k}XferTables" class="space-y-5"></div>`;
+                    const dEl = document.getElementById(k + 'XferDate');
+                    dEl.value = todayStr();
+                    dEl.addEventListener('input', () => {
+                        let d = dEl.value.replace(/\D/g, '').slice(0, 8);
+                        if (d.length > 6) d = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
+                        else if (d.length > 4) d = d.slice(0, 4) + '-' + d.slice(4);
+                        dEl.value = d;
+                        dEl.setCustomValidity(d.length === 10 && !validDateStr(d) ? 'ትክክለኛ ቀን ያስገቡ' : '');
+                    });
+                    document.getElementById(k + 'XferForm').addEventListener('submit', (e) => submitXfer(e, k));
+                }
+                document.getElementById(k + 'XferTables').innerHTML = xferTable(k, 'a2z') + xferTable(k, 'z2a');
+            });
+        }
+
+        async function submitXfer(e, k) {
+            e.preventDefault();
+            if (!unlocked[k]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const g = id => document.getElementById(k + id).value.trim();
+            const date = g('XferDate'), link = g('XferLink'), reason = g('XferReason'), dir = g('XferDir');
+            const amt = parseFloat(g('XferAmt')) || 0;
+            if (!validDateStr(date)) { showAlert("ትክክለኛ ቀን ያስገቡ (ለምሳሌ 2026-11-04)", "error"); return; }
+            if (!safeUrl(link)) { showAlert("ትክክለኛ የስሊፕ ሊንክ ያስገቡ (http ወይም https)!", "error"); return; }
+            if (amt <= 0 || !reason || !XFER_DIR[dir]) { showAlert("መጠን እና ምክንያት በትክክል ያስገቡ!", "error"); return; }
+            try {
+                await push(xferRef, { ቀን: date, ሊንክ: safeUrl(link), መጠን: amt, ምክንያት: reason, አቅጣጫ: dir, የመዘገበው: k, የተመዘገበበትሰዓት: Date.now() });
+                showAlert("የገንዘብ ልውውጥ ሊንክ ተመዝግቧል!");
+                document.getElementById(k + 'XferLink').value = '';
+                document.getElementById(k + 'XferAmt').value = '';
+                document.getElementById(k + 'XferReason').value = '';
+                document.getElementById(k + 'XferDate').value = todayStr();
+            } catch (err) { console.error(err); showAlert("መመዝገብ አልተቻለም።", "error"); }
+        }
+
+        window.deleteXfer = async function(id, k) {
+            if (!unlocked[k]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            if (!confirm("ይህንን የሊንክ መዝገብ በእርግጥ መሰረዝ ይፈልጋሉ?")) return;
+            try { await remove(ref(db, `የገንዘብ ልውውጥ/${id}`)); showAlert("ተሰርዟል!"); }
+            catch (err) { console.error(err); showAlert("መሰረዝ አልተቻለም።", "error"); }
+        };
+
+        function xferReportHtml(forWord) {
+            const section = dir => {
+                const list = (window.xferData || []).filter(x => x.አቅጣጫ === dir);
+                const body = list.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.ቀን)}</td><td>${esc(x.ሊንክ)}</td><td style="text-align:right">${money(x.መጠን)}</td><td>${esc(x.ምክንያት)}</td></tr>`).join('')
+                    || '<tr><td colspan="5" style="text-align:center">ምንም መረጃ የለም</td></tr>';
+                return `<h3>${XFER_DIR[dir].label} — ድምር፦ ${money(xferSum(list))} ብር</h3>
+<table><thead><tr><th>ተራ ቁ.</th><th>ቀን</th><th>የሊንክ ማስቀመጫ</th><th>የተላለፈው መጠን (ብር)</th><th>የተላለፈበት ምክንያት</th></tr></thead><tbody>${body}</tbody></table>`;
+            };
+            return `<html${forWord ? " xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'" : ''}>
+<head><meta charset="utf-8"><title>የገንዘብ ልውውጥ ሊንክ ማስቀመጫ</title>
+<style>body{font-family:'Noto Sans Ethiopic',Arial,sans-serif;padding:20px;color:#1e293b}h2{margin:0 0 4px}h3{margin:18px 0 6px}p{color:#64748b;font-size:13px}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #cbd5e1;padding:8px;font-size:13px;word-break:break-all}th{background:#4f46e5;color:#fff;text-align:left}</style></head><body>
+<h2>የገንዘብ ልውውጥ ሊንክ ማስቀመጫ</h2><p>የጋራ መኪና — ዘላለም እሸቱ እና አበባው የቆየ | የተዘጋጀበት ቀን፡ ${fmtDate(new Date())}</p>
+${section('a2z')}${section('z2a')}</body></html>`;
+        }
+
+        window.exportXfer = function(k, format) {
+            if (!unlocked[k]) { showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const list = window.xferData || [];
+            if (!list.length) { showAlert("ምንም የሚወርድ መረጃ የለም!", "error"); return; }
+            const stamp = fmtDate(new Date());
+            if (format === 'print') {
+                const frame = document.createElement('iframe');
+                frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+                document.body.appendChild(frame);
+                frame.contentDocument.open();
+                frame.contentDocument.write(xferReportHtml(false));
+                frame.contentDocument.close();
+                setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 3000); }, 400);
+            } else if (format === 'word') {
+                downloadBlob(new Blob(['﻿' + xferReportHtml(true)], { type: 'application/msword' }), `የገንዘብ_ልውውጥ_ሊንክ_${stamp}.doc`);
+            } else if (format === 'excel') {
+                const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+                const lines = [['ተራ ቁ.', 'አቅጣጫ', 'ቀን', 'የሊንክ ማስቀመጫ', 'የተላለፈው መጠን (ብር)', 'የተላለፈበት ምክንያት'].map(q).join(',')];
+                ['a2z', 'z2a'].forEach(dir => list.filter(x => x.አቅጣጫ === dir).forEach((x, i) =>
+                    lines.push([i + 1, q(XFER_DIR[dir].label), q(x.ቀን), q(x.ሊንክ), Number(x.መጠን || 0).toFixed(2), q(x.ምክንያት)].join(','))));
+                downloadBlob(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' }), `የገንዘብ_ልውውጥ_ሊንክ_${stamp}.csv`);
+            }
+        };
+
+        onValue(xferRef, (snap) => {
+            const d = snap.val() || {};
+            window.xferData = Object.keys(d).map(id => ({ id, ...d[id] })).sort(byDateDesc);
+            renderXfer();
+        });
+        renderXfer();
+
+        window.__ready = true;
+        refreshDerived();
+
+        // Realtime Data Sync
+        onValue(carIncomeRef, (snapshot) => {
+            const data = snapshot.val();
+            const mainTableBody = document.getElementById('mainTableBody');
+            const zelalemPortalBody = document.getElementById('zelalemPortalBody');
+            const abebawPortalBody = document.getElementById('abebawPortalBody');
+
+            mainTableBody.innerHTML = '';
+            zelalemPortalBody.innerHTML = '';
+            abebawPortalBody.innerHTML = '';
+
+            if (!data) {
+                mainTableBody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">ምንም የተመዘገበ መረጃ የለም።</td></tr>`;
+                zelalemPortalBody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">ምንም የተመዘገበ መረጃ የለም።</td></tr>`;
+                abebawPortalBody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">ምንም የተመዘገበ መረጃ የለም።</td></tr>`;
+                
+                document.getElementById('totalIncome').textContent = '0.00';
+                document.getElementById('totalExpense').textContent = '0.00';
+                document.getElementById('netBalance').textContent = '0.00';
+                document.getElementById('perPartnerShare').textContent = '0.00';
+                document.getElementById('zelalemPortalTotal').textContent = '0.00 ብር';
+                document.getElementById('abebawPortalTotal').textContent = '0.00 ብር';
+                window.allRecordsData = []; window.zelalemRecordsData = []; window.abebawRecordsData = [];
+                refreshDerived();
+                return;
+            }
+
+            const recordsList = [];
+            Object.keys(data).forEach(key => {
+                recordsList.push({ id: key, ...data[key] });
+            });
+
+            // Sort descending
+            recordsList.sort(byDateDesc);
+            window.allRecordsData = recordsList;
+
+            let gTotalIncome = 0;
+            let gTotalExpense = 0;
+            let gZelalemShare = 0;
+            let gAbebawShare = 0;
+
+            recordsList.forEach((item, index) => {
+                const income = Number(item.የተገኘገቢ) || 0;
+                const expense = Number(item.የወጣወጪ) || 0;
+                const net = income - expense;
+                const partnerShare = net / 2;
+
+                gTotalIncome += income;
+                gTotalExpense += expense;
+                gZelalemShare += partnerShare;
+                gAbebawShare += partnerShare;
+
+                const isZelalemPaid = item.ዘላለምተቀብያለሁ === true;
+                const isAbebawPaid = item.አበባውተቀብያለሁ === true;
+
+                // 1. Render Main Admin Table Row
+                const mTr = document.createElement('tr');
+                mTr.className = "hover:bg-slate-50 transition-colors";
+                mTr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-medium text-gray-400">${index + 1}</td>
+                    <td class="px-4 py-3 font-semibold text-gray-700">${item.ቀን}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">${item.ምክንያት || '-'}</td>
+                    <td class="px-4 py-3 text-right font-bold text-emerald-600">+${income.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-4 py-3 text-right font-bold text-rose-600">${expense > 0 ? '-' : ''}${expense.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-4 py-3 text-right font-extrabold text-indigo-600">${net.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-4 py-3 text-right font-extrabold text-amber-600">${partnerShare.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-4 py-3 text-center no-print">
+                        <button onclick="editRecord('${item.id}')" class="text-indigo-600 hover:text-indigo-800 font-semibold text-xs mx-1" title="አርም">
+                            <i class="fa-solid fa-pen-to-square"></i> አርም
+                        </button>
+                        <button onclick="deleteRecord('${item.id}')" class="text-rose-500 hover:text-rose-700 font-semibold text-xs mx-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                mainTableBody.appendChild(mTr);
+
+                // 2. Render Zelalem Personal Portal Row
+                const zTr = document.createElement('tr');
+                zTr.className = "hover:bg-blue-50/40 transition-colors";
+                zTr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-medium text-gray-400">${index + 1}</td>
+                    <td class="px-4 py-3 font-medium text-gray-700">${item.ቀን}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">${item.ምክንያት || '-'}</td>
+                    <td class="px-4 py-3 text-right font-bold text-indigo-600">${net.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር</td>
+                    <td class="px-4 py-3 text-right font-extrabold text-blue-600">${partnerShare.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር</td>
+                    <td class="px-4 py-3 text-center">
+                        <label class="inline-flex items-center ${isZelalemPaid ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}">
+                            <input type="checkbox" ${isZelalemPaid ? 'checked disabled' : ''} onchange="toggleMemberPayment('${item.id}', 'ዘላለምተቀብያለሁ', this)" class="sr-only peer">
+                            <div class="w-28 h-7 bg-rose-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500 relative flex items-center justify-between px-2 text-[10px] font-bold text-white">
+                                <span class="${isZelalemPaid ? 'block' : 'hidden'} pl-1">ተቀብያለሁ</span>
+                                <span class="${!isZelalemPaid ? 'block text-rose-700' : 'hidden'} pr-1">አልተቀበልኩም</span>
+                            </div>
+                        </label>
+                    </td>
+                `;
+                zelalemPortalBody.appendChild(zTr);
+
+                // 3. Render Abebaw Personal Portal Row
+                const aTr = document.createElement('tr');
+                aTr.className = "hover:bg-purple-50/40 transition-colors";
+                aTr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-medium text-gray-400">${index + 1}</td>
+                    <td class="px-4 py-3 font-medium text-gray-700">${item.ቀን}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">${item.ምክንያት || '-'}</td>
+                    <td class="px-4 py-3 text-right font-bold text-indigo-600">${net.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር</td>
+                    <td class="px-4 py-3 text-right font-extrabold text-purple-600">${partnerShare.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር</td>
+                    <td class="px-4 py-3 text-center">
+                        <label class="inline-flex items-center ${isAbebawPaid ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}">
+                            <input type="checkbox" ${isAbebawPaid ? 'checked disabled' : ''} onchange="toggleMemberPayment('${item.id}', 'አበባውተቀብያለሁ', this)" class="sr-only peer">
+                            <div class="w-28 h-7 bg-rose-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500 relative flex items-center justify-between px-2 text-[10px] font-bold text-white">
+                                <span class="${isAbebawPaid ? 'block' : 'hidden'} pl-1">ተቀብያለሁ</span>
+                                <span class="${!isAbebawPaid ? 'block text-rose-700' : 'hidden'} pr-1">አልተቀበልኩም</span>
+                            </div>
+                        </label>
+                    </td>
+                `;
+                abebawPortalBody.appendChild(aTr);
+            });
+
+            // Update Dashboards Totals
+            const gNetBalance = gTotalIncome - gTotalExpense;
+            const perPartnerTotal = gNetBalance / 2;
+
+            document.getElementById('totalIncome').textContent = gTotalIncome.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('totalExpense').textContent = gTotalExpense.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('netBalance').textContent = gNetBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('perPartnerShare').textContent = perPartnerTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            document.getElementById('zelalemPortalTotal').textContent = `${gZelalemShare.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር`;
+            document.getElementById('abebawPortalTotal').textContent = `${gAbebawShare.toLocaleString('en-US', {minimumFractionDigits: 2})} ብር`;
+
+            window.zelalemRecordsData = recordsList;
+            window.abebawRecordsData = recordsList;
+            refreshDerived();
+        });
+
+        // Toggle Member Status in Database
+        window.toggleMemberPayment = async function(id, memberField, checkbox) {
+            const who = memberField.startsWith('ዘላለም') ? 'zelalem' : 'abebaw';
+            if (!unlocked[who]) { checkbox.checked = false; showAlert("መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+
+            // አንዴ "ተቀብያለሁ" ከተባለ መልሶ መቀየር አይቻልም
+            const rec = (window.allRecordsData || []).find(r => r.id === id);
+            if (rec && rec[memberField] === true) {
+                checkbox.checked = true;
+                showAlert("ይህ ክፍያ ቀድሞ ተረጋግጧል፤ መቀየር አይቻልም።", "error");
+                return;
+            }
+
+            if (!confirm("ተቀብያለሁ ካሉ በኋላ መልሰው ማስተካከል አይችሉም። እርግጠኛ ነዎት?")) {
+                checkbox.checked = false;
+                return;
+            }
+
+            try {
+                checkbox.disabled = true;
+                await update(ref(db, `የመኪና ገቢ/${id}`), {
+                    [memberField]: true,
+                    [memberField + 'ሰዓት']: Date.now()
+                });
+                showAlert("የድርሻ ክፍያ መቀበልዎ ተረጋገጠ!");
+            } catch (error) {
+                console.error("Error updating member status: ", error);
+                checkbox.disabled = false;
+                checkbox.checked = false;
+                showAlert("ሁኔታውን መቀየር አልተቻለም።", "error");
+            }
+        };
+
+        // ---- የተመዘገበ ገቢ ማረም
+        let editingId = null;
+        window.editRecord = function(id) {
+            if (!unlocked.admin) { showAlert("ለማረም መጀመሪያ የይለፍ ቃል ያስገቡ!", "error"); return; }
+            const r = (window.allRecordsData || []).find(x => x.id === id);
+            if (!r) return;
+            editingId = id;
+            document.getElementById('editDate').value = r.ቀን || '';
+            document.getElementById('editIncome').value = Number(r.የተገኘገቢ) || 0;
+            document.getElementById('editExpense').value = Number(r.የወጣወጪ) || 0;
+            document.getElementById('editDesc').value = r.ምክንያት || '';
+            document.getElementById('editDate').setCustomValidity('');
+            document.getElementById('editModal').classList.remove('hidden');
+        };
+        window.closeEdit = function() { editingId = null; document.getElementById('editModal').classList.add('hidden'); };
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!unlocked.admin || !editingId) return;
+            const date = document.getElementById('editDate').value.trim();
+            const income = parseFloat(document.getElementById('editIncome').value) || 0;
+            const expense = parseFloat(document.getElementById('editExpense').value) || 0;
+            const desc = document.getElementById('editDesc').value.trim();
+            if (!validDateStr(date)) { showAlert("ትክክለኛ ቀን ያስገቡ (ለምሳሌ 2026-11-04)", "error"); return; }
+            if (income === 0 && expense === 0) { showAlert("እባክዎን ገቢ ወይም ወጪ ያስገቡ!", "error"); return; }
+            const net = income - expense;
+            try {
+                await update(ref(db, `የመኪና ገቢ/${editingId}`), {
+                    ቀን: date, የተገኘገቢ: income, የወጣወጪ: expense, የተጣራገቢ: net,
+                    የአንድአባልድርሻ: net / 2, ምክንያት: desc, የተስተካከለበትሰዓት: Date.now()
+                });
+                closeEdit();
+                showAlert("መዝገቡ ተስተካክሏል!");
+            } catch (err) { console.error(err); showAlert("ማረም አልተቻለም።", "error"); }
+        });
+
+        // Delete Record
+        window.deleteRecord = async function(id) {
+            if (!unlocked.admin) { showAlert("መሰረዝ የሚችለው የይለፍ ቃል ያስገባ ብቻ ነው!", "error"); return; }
+            if (confirm("ይህንን መዝገብ በእርግጥ መሰረዝ ይፈልጋሉ?")) {
+                try {
+                    const itemRef = ref(db, `የመኪና ገቢ/${id}`);
+                    await remove(itemRef);
+                    showAlert("መረጃው በስኬት ተሰርዟል!");
+                } catch (error) {
+                    console.error("Error deleting record: ", error);
+                    showAlert("መረጃውን መሰረዝ አልተቻለም።", "error");
+                }
+            }
+        };
+
+        // Export Member Share to Excel/CSV
+        window.exportMemberToExcel = function(memberName, data) {
+            if (!data || data.length === 0) {
+                showAlert("ምንም የሚወርድ መረጃ የለም!", "error");
+                return;
+            }
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM for Ethiopic script
+            csvContent += `ተራ ቁ.,ቀን,ዝርዝር,የተገኘ ገቢ,የወጣ ወጪ,የተጣራ ገቢ,የ${memberName} ድርሻ (50%),የክፍያ ሁኔታ\n`;
+
+            data.forEach((item, index) => {
+                const net = (Number(item.የተገኘገቢ) || 0) - (Number(item.የወጣወጪ) || 0);
+                const share = net / 2;
+                const status = memberName === 'ዘላለም እሸቱ' 
+                    ? (item.ዘላለምተቀብያለሁ ? 'ተቀብሏል' : 'አልተቀበለም')
+                    : (item.አበባውተቀብያለሁ ? 'ተቀብሏል' : 'አልተቀበለም');
+
+                csvContent += `${index + 1},"${item.ቀን}","${item.ምክንያት || ''}",${item.የተገኘገቢ || 0},${item.የወጣወጪ || 0},${net},${share},"${status}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `የ${memberName}_ገቢና_ድርሻ_ሪፖርት.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+
+        // Export All to Word (.doc)
+        window.exportAllToWord = function() {
+            const tableHTML = document.getElementById('mainRecordsTable').outerHTML;
+            const headerHTML = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>የጋራ መኪና አጠቃላይ ገቢና ወጪ ሪፖርት</title>
+                <style>
+                    table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #4f46e5; color: white; }
+                    .no-print { display: none; }
+                </style>
+                </head><body>
+                <h2>የጋራ መኪና አጠቃላይ ገቢና ወጪ ሪፖርት</h2>
+                <p>ባለድርሻዎች፡ ዘላለም እሸቱ እና አበባው የቆየ (50/50)</p>
+            `;
+            const footerHTML = "</body></html>";
+            
+            const sourceHTML = headerHTML + tableHTML + footerHTML;
+            const blob = new Blob(['\ufeff' + sourceHTML], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'የጋራ_መኪና_አጠቃላይ_ሪፖርት.doc';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+    </script>
+    <script>
+        // ሁሉም ካርዶች፦ ርዕሱን ሲነኩ ይከፈታሉ፣ ድጋሚ ሲነኩ ይዘጋሉ
+        (function () {
+            function initCollapsible(card) {
+                const kids = Array.from(card.children);
+                if (kids.length < 2) return;
+                const header = kids[0];
+                header.classList.add('c-header');
+                kids.slice(1).forEach(k => k.classList.add('c-body'));
+                let chev = header.querySelector('.fa-chevron-down');
+                if (!chev) {
+                    chev = document.createElement('i');
+                    chev.className = 'fa-solid fa-chevron-down text-gray-400 ml-2';
+                    (header.querySelector('h2, h3') || header).appendChild(chev);
+                }
+                chev.classList.add('c-chev');
+                card.setAttribute('data-collapse', '');
+                card.classList.add('c-closed');
+                header.addEventListener('click', function (e) {
+                    if (e.target.closest('button, a, input, select, textarea, label, summary')) return;
+                    card.classList.toggle('c-closed');
+                });
+            }
+
+            // የአባላት ገፅ ዝርዝር ሠንጠረዥ ርዕስ ያለው ካርድ ይሆናል
+            [['zelalem', 'border-blue-200'], ['abebaw', 'border-purple-200']].forEach(function (x) {
+                const body = document.getElementById(x[0] + 'PortalBody');
+                const wrap = body && body.closest('.overflow-x-auto');
+                if (!wrap) return;
+                const card = document.createElement('div');
+                card.className = 'rounded-xl border ' + x[1] + ' p-4 space-y-3';
+                card.innerHTML = '<div class="flex justify-between items-center"><h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-list-check"></i> የክፍያ ዝርዝር</h3><i class="fa-solid fa-chevron-down text-gray-400"></i></div>';
+                wrap.parentNode.insertBefore(card, wrap);
+                card.appendChild(wrap);
+                initCollapsible(card);
+            });
+
+            // ትላልቅ ክፍሎች (ካርዶች)
+            document.querySelectorAll('main section:not(.grid)').forEach(initCollapsible);
+            // የአባላት ገፅ ውስጥ ያሉ ካርዶች
+            ['zelalemCarBox', 'abebawCarBox', 'zelalemRepBody', 'abebawRepBody', 'zelalemXferCard', 'abebawXferCard'].forEach(function (id) {
+                const el = document.getElementById(id);
+                const card = el && el.closest('.rounded-xl');
+                if (card && !card.hasAttribute('data-collapse')) initCollapsible(card);
+            });
+
+            // የድምር ካርዶች፦ ሲነኩ ቁጥሩ ይደበቃል/ይታያል
+            const stats = Array.from(document.querySelectorAll('section.grid > div'));
+            ['zelalemPortalTotal', 'abebawPortalTotal'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) stats.push(el.closest('.rounded-xl'));
+            });
+            stats.forEach(function (card) {
+                if (!card) return;
+                const val = card.querySelector('h3, .text-2xl');
+                if (!val) return;
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', function () { val.classList.toggle('stat-blur'); });
+            });
+        })();
+    </script>
+    <script>
+        // Service Worker (ለኢንስቶል እና ለፈጣን ጭነት)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.warn('SW registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>
